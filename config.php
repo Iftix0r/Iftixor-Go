@@ -2,6 +2,8 @@
 define('BOT_TOKEN', '8854883342:AAFBlJwYy3Ev0_3owiGj2SrdcY64oHJ7B9k');
 define('GROUP_CHAT_ID', '-5284614531');
 define('WEBAPP_URL', 'https://iftixorgo.bigsaver.ru/webapp/');
+define('ADMIN_URL', 'https://iftixorgo.bigsaver.ru/webapp/admin.html');
+define('ADMIN_IDS', [2114098498]); // Telegram ID larini qo'shing, masalan: [123456789, 987654321]
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'iftixorgo');
 define('DB_USER', 'bulungur');

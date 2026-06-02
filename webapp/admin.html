@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Iftixor Go — Admin Panel</title>
+<link rel="stylesheet" href="admin.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">🍽️</div>
+    <span class="brand-name">Iftixor Go</span>
+    <span class="brand-badge">Admin</span>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-link active" onclick="switchTab('dashboard')" id="tab-dashboard">
+      <span class="nav-icon">📊</span> Dashboard
+    </a>
+    <a class="nav-link" onclick="switchTab('orders')" id="tab-orders">
+      <span class="nav-icon">📦</span> Buyurtmalar
+      <span class="nav-badge" id="pendingBadge" style="display:none">0</span>
+    </a>
+    <a class="nav-link" onclick="switchTab('users')" id="tab-users">
+      <span class="nav-icon">👥</span> Foydalanuvchilar
+    </a>
+    <a class="nav-link" onclick="switchTab('products')" id="tab-products">
+      <span class="nav-icon">🛍️</span> Mahsulotlar
+    </a>
+    <a class="nav-link" onclick="switchTab('broadcast')" id="tab-broadcast">
+      <span class="nav-icon">📢</span> Xabar yuborish
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="admin-info">
+      <div class="admin-avatar">👤</div>
+      <div>
+        <div class="admin-name" id="adminName">Admin</div>
+        <div class="admin-role">Boshqaruvchi</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Mobile Header -->
+<header class="mobile-header">
+  <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+  <span class="mobile-title">Iftixor Go Admin</span>
+</header>
+
+<!-- Overlay for mobile -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- Main Content -->
+<main class="main-content" id="mainContent">
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <section class="tab-content active" id="content-dashboard">
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <p class="page-desc">Umumiy statistika va holat</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card stat-orange">
+        <div class="stat-icon">📦</div>
+        <div class="stat-info">
+          <div class="stat-number" id="sTodayOrders">—</div>
+          <div class="stat-title">Bugungi buyurtmalar</div>
+        </div>
+      </div>
+      <div class="stat-card stat-green">
+        <div class="stat-icon">💰</div>
+        <div class="stat-info">
+          <div class="stat-number" id="sTodayRevenue">—</div>
+          <div class="stat-title">Bugungi daromad</div>
+        </div>
+      </div>
+      <div class="stat-card stat-blue">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+          <div class="stat-number" id="sTotalUsers">—</div>
+          <div class="stat-title">Jami foydalanuvchilar</div>
+        </div>
+      </div>
+      <div class="stat-card stat-red">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-info">
+          <div class="stat-number" id="sPending">—</div>
+          <div class="stat-title">Kutilayotgan</div>
+        </div>
+      </div>
+      <div class="stat-card stat-purple">
+        <div class="stat-icon">📋</div>
+        <div class="stat-info">
+          <div class="stat-number" id="sTotalOrders">—</div>
+          <div class="stat-title">Jami buyurtmalar</div>
+        </div>
+      </div>
+      <div class="stat-card stat-gold">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-info">
+          <div class="stat-number" id="sTotalRevenue">—</div>
+          <div class="stat-title">Jami daromad</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>⏳ Yangi buyurtmalar</h2>
+        <button class="btn-sm" onclick="loadDashboard()">🔄 Yangilash</button>
+      </div>
+      <div id="recentOrders" class="orders-list">Yuklanmoqda...</div>
+    </div>
+  </section>
+
+  <!-- ═══ ORDERS ═══ -->
+  <section class="tab-content" id="content-orders">
+    <div class="page-header">
+      <h1>Buyurtmalar</h1>
+      <div class="filter-row">
+        <select id="orderFilter" onchange="loadOrders()">
+          <option value="">Barchasi</option>
+          <option value="new">🆕 Yangi</option>
+          <option value="confirmed">✅ Qabul qilingan</option>
+          <option value="cooking">👨‍🍳 Tayyorlanmoqda</option>
+          <option value="delivered">🚚 Yetkazilgan</option>
+          <option value="cancelled">❌ Bekor</option>
+        </select>
+        <button class="btn-sm" onclick="loadOrders()">🔄</button>
+      </div>
+    </div>
+    <div id="ordersList" class="orders-list">Yuklanmoqda...</div>
+  </section>
+
+  <!-- ═══ USERS ═══ -->
+  <section class="tab-content" id="content-users">
+    <div class="page-header">
+      <h1>Foydalanuvchilar</h1>
+      <div class="filter-row">
+        <input type="text" id="userSearch" placeholder="Ism, username yoki telefon..." onkeyup="searchUsers()">
+        <button class="btn-sm" onclick="loadUsers()">🔄</button>
+      </div>
+    </div>
+    <div id="usersList" class="users-table-wrap">Yuklanmoqda...</div>
+  </section>
+
+  <!-- ═══ PRODUCTS ═══ -->
+  <section class="tab-content" id="content-products">
+    <div class="page-header">
+      <h1>Mahsulotlar</h1>
+      <button class="btn-primary" onclick="showAddProduct()">+ Yangi mahsulot</button>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div class="modal hidden" id="productModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="productModalTitle">Yangi mahsulot</h3>
+          <button class="modal-close" onclick="closeProductModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editProductId">
+          <div class="form-group">
+            <label>Kategoriya</label>
+            <select id="prodCat"></select>
+          </div>
+          <div class="form-group">
+            <label>Nomi</label>
+            <input type="text" id="prodName" placeholder="Masalan: Osh">
+          </div>
+          <div class="form-group">
+            <label>Tavsif</label>
+            <input type="text" id="prodDesc" placeholder="Masalan: Milliy palov">
+          </div>
+          <div class="form-group">
+            <label>Narxi (so'm)</label>
+            <input type="number" id="prodPrice" placeholder="25000">
+          </div>
+          <div class="form-group">
+            <label>Rasm URL (ixtiyoriy)</label>
+            <input type="text" id="prodImage" placeholder="https://...">
+          </div>
+          <div class="form-group" id="prodAvailGroup" style="display:none">
+            <label>
+              <input type="checkbox" id="prodAvailable" checked> Mavjud (sotuvda)
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeProductModal()">Bekor</button>
+          <button class="btn-primary" onclick="saveProduct()">Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="productsList" class="products-grid">Yuklanmoqda...</div>
+  </section>
+
+  <!-- ═══ BROADCAST ═══ -->
+  <section class="tab-content" id="content-broadcast">
+    <div class="page-header">
+      <h1>📢 Xabar yuborish</h1>
+      <p class="page-desc">Barcha foydalanuvchilarga xabar tarqatish</p>
+    </div>
+
+    <div class="card broadcast-card">
+      <div class="form-group">
+        <label>Xabar matni (Markdown qo'llab-quvvatlanadi)</label>
+        <textarea id="broadcastMsg" rows="6" placeholder="*Salom!* &#10;&#10;Bugun maxsus chegirma 🎉&#10;Barcha ovqatlar 20% arzon!"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Ko'rinish (preview):</label>
+        <div class="broadcast-preview" id="broadcastPreview">Matn kiriting...</div>
+      </div>
+      <div class="broadcast-actions">
+        <button class="btn-primary btn-broadcast" onclick="sendBroadcast()" id="broadcastBtn">
+          📢 Barchaga yuborish
+        </button>
+      </div>
+      <div id="broadcastResult" class="broadcast-result" style="display:none"></div>
+    </div>
+  </section>
+
+</main>
+
+<div id="adminToast" class="admin-toast hidden"></div>
+
+<script src="admin.js?v=1.0"></script>
+</body>
+</html>
