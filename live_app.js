@@ -7,31 +7,18 @@ let menu = [], cart = [], activeCat = 0, modalProduct = null, modalQty = 1;
 const $ = id => document.getElementById(id);
 
 // ── INIT ──
-// Hard fallback — agar hech narsa ishlamasa ham 3 soniyada splash o'tadi
-window.addEventListener('load', function() {
-  setTimeout(function() {
-    var s = document.getElementById('splash');
-    var a = document.getElementById('app');
-    if (s && s.style.display !== 'none') {
-      s.style.opacity = '0';
-      if (a) a.classList.remove('hidden');
-      setTimeout(function() { s.style.display = 'none'; }, 400);
-    }
-  }, 3000);
-});
-
 async function init() {
   if (tg) {
-    try {
-      tg.ready();
-      tg.expand();
-    } catch(e) { console.warn('tg.ready error', e); }
-    try {
-      tgUser = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
-    } catch(e) { console.warn('tgUser error', e); tgUser = null; }
+    tg.ready();
+    tg.expand();
+    tgUser = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+    
+    if (!tgUser) {
+      tg.showAlert("DEBUG INFO:\nURL: " + window.location.href + "\nHash: " + window.location.hash + "\nUnsafe: " + JSON.stringify(tg.initDataUnsafe));
+    }
   }
 
-  const splashTimer = setTimeout(hideSplash, 800);
+  const splashTimer = setTimeout(hideSplash, 900);
   try {
     if (tgUser && tgUser.id) await saveUser();
     else showGuestHeader();
@@ -45,8 +32,10 @@ async function init() {
     renderCart();
   } catch(e) {
     console.warn('Init error:', e);
-    var hName = $('headerName');
-    if (hName && hName.textContent === 'Yuklanmoqda...') hName.textContent = 'Xato';
+    toast('Xatolik yuz berdi: ' + (e.message || "Noma'lum xato"));
+    if ($('headerName').textContent === 'Yuklanmoqda...') {
+      $('headerName').textContent = 'Xatolik';
+    }
   } finally {
     clearTimeout(splashTimer);
     hideSplash();
@@ -54,14 +43,13 @@ async function init() {
 }
 
 function hideSplash() {
-  var splash = $('splash');
-  if (!splash || splash.style.display === 'none') return;
+  const splash = $('splash');
+  if (!splash) return;
   splash.style.opacity = '0';
-  var appEl = $('app');
+  const appEl = $('app');
   if (appEl) appEl.classList.remove('hidden');
-  setTimeout(function() { splash.style.display = 'none'; }, 380);
+  setTimeout(() => splash.style.display = 'none', 380);
 }
-
 
 function showGuestHeader() {
   const el = $('headerName');
