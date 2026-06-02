@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+Server: nginx/1.26.3
+Date: Tue, 02 Jun 2026 16:10:49 GMT
+Content-Type: application/json
+Content-Length: 31
+Connection: keep-alive
+X-Powered-By: PHP/7.4.33
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+
+{"success":true,"data":"saved"}
