@@ -140,7 +140,7 @@ elseif ($text === '👤 Profil') {
 }
 
 elseif ($text === '📞 Bog\'lanish') {
-    sendMsg($chatId, "📞 *Bog'lanish:*\n\nTel: +998 90 000 00 00\nTelegram: @iftixor_support\n📍 Manzil: Toshkent sh.");
+    sendMsg($chatId, "📞 *Bog'lanish:*\n\n👤 Muallif: @Iftix0r\n📱 Telefon: +998 50 500 93 56\n\n_Savollar uchun yozing!_");
 }
 
 elseif ($text === 'ℹ️ Haqida') {

@@ -209,10 +209,17 @@ function validateTelegramData(string $initData): bool {
 
 [MIT License](LICENSE) — Erkin foydalaning, o'zgartiring va tarqating.
 
+## 📞 Bog'lanish
+
+| | |
+|---|---|
+| 💬 Telegram | [@Iftix0r](https://t.me/Iftix0r) |
+| 📱 Telefon | +998 50 500 93 56 |
+
 ---
 
 <p align="center">
   <b>Iftixor Go</b> — Telegram orqali qulay ovqat buyurtmasi 🍽️<br>
-  <a href="https://t.me/your_bot">Bot</a> · 
+  <a href="https://t.me/Iftix0r">Muallif</a> · 
   <a href="https://github.com/username/iftixor-go/issues">Muammo bildirish</a>
 </p>
