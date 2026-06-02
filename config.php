@@ -1,9 +1,9 @@
 <?php
-define('BOT_TOKEN', 'YOUR_BOT_TOKEN_HERE');
-define('GROUP_CHAT_ID', '-100YOUR_GROUP_ID');
-define('WEBAPP_URL', 'https://yourdomain.com/webapp');
+define('BOT_TOKEN', '8854883342:AAFBlJwYy3Ev0_3owiGj2SrdcY64oHJ7B9k');
+define('GROUP_CHAT_ID', '-5284614531');
+define('WEBAPP_URL', 'https://iftixorgo.bigsaver.ru/webapp');
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'iftixor_bot');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_NAME', 'iftixorgo');
+define('DB_USER', 'bulungur');
+define('DB_PASS', 'Iftixor2006');
 define('CURRENCY', 'so\'m');
