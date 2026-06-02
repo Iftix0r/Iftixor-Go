@@ -357,8 +357,17 @@ async function loadOrderHistory() {
   const el = $('orderHistory');
   if (!res.success || !(res.data && res.data.length)) {
     el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--subtext);font-size:13px">Buyurtmalar yo'q</div>`;
+    if ($('statOrdersCount')) $('statOrdersCount').textContent = '0';
+    if ($('statTotalSpent')) $('statTotalSpent').textContent = '0 so\\'m';
     return;
   }
+  
+  if ($('statOrdersCount')) {
+    $('statOrdersCount').textContent = res.data.length;
+    const totalSpent = res.data.reduce((acc, o) => acc + (o.status !== 'cancelled' ? +o.total : 0), 0);
+    $('statTotalSpent').textContent = fmt(totalSpent);
+  }
+
   const sMap = { new:'Yangi', confirmed:'Qabul', cooking:'Tayyorlanmoqda', delivered:'Yetkazildi', cancelled:'Bekor' };
   const cMap = { new:'s-new', confirmed:'s-confirmed', cooking:'s-cooking', delivered:'s-delivered', cancelled:'s-cancelled' };
   el.innerHTML = res.data.map(o => `
