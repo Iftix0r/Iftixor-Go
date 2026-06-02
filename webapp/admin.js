@@ -45,8 +45,19 @@ function toggleSidebar() {
 
 // ── DASHBOARD ──
 function loadDashboard() {
+  var refreshBtn = document.querySelector('#content-dashboard .btn-sm');
+  if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '...'; }
+
   get('admin_stats').then(function(res) {
-    if (!res.success) return;
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Yangilash';
+    }
+    if (!res.success) {
+      ['sTodayOrders','sTodayRevenue','sTotalUsers','sPending','sTotalOrders','sTotalRevenue','sBlockedUsers'].forEach(function(id){ setText(id, '!'); });
+      document.getElementById('recentOrders').innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:14px">⚠️ Server bilan ulanishda xatolik. Internet yoki server holatini tekshiring.</div>';
+      return;
+    }
     var d = res.data;
     setText('sTodayOrders', d.today_orders);
     setText('sTodayRevenue', fmt(d.today_revenue));
@@ -56,7 +67,6 @@ function loadDashboard() {
     setText('sTotalRevenue', fmt(d.total_revenue));
     var badge = document.getElementById('pendingBadge');
     if (badge) { badge.textContent = d.pending_orders; badge.style.display = d.pending_orders > 0 ? 'flex' : 'none'; }
-    // Bloklangan foydalanuvchilar
     var blkEl = document.getElementById('sBlockedUsers');
     if (blkEl) blkEl.textContent = d.blocked_users || 0;
   });
@@ -494,13 +504,22 @@ function adminToast(msg) {
   clearTimeout(t._t); t._t = setTimeout(function() { t.classList.add('hidden'); }, 2500);
 }
 
-function post(action, data) {
-  return fetch(API + '?action=' + action, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
-  }).then(function(r) { return r.json(); }).catch(function() { return { success: false }; });
-}
 function get(action) {
-  return fetch(API + '?action=' + action).then(function(r) { return r.json(); }).catch(function() { return { success: false }; });
+  var controller = new AbortController();
+  var timer = setTimeout(function(){ controller.abort(); }, 8000);
+  return fetch(API + '?action=' + action, { signal: controller.signal })
+    .then(function(r) { clearTimeout(timer); return r.json(); })
+    .catch(function() { clearTimeout(timer); return { success: false }; });
+}
+
+function post(action, data) {
+  var controller = new AbortController();
+  var timer = setTimeout(function(){ controller.abort(); }, 8000);
+  return fetch(API + '?action=' + action, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data), signal: controller.signal
+  }).then(function(r) { clearTimeout(timer); return r.json(); })
+    .catch(function() { clearTimeout(timer); return { success: false }; });
 }
 
 // ── SVG ICONS ──
