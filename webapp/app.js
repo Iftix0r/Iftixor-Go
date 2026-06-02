@@ -1,129 +1,169 @@
 const API = '../api.php';
+
+// Telegram WebApp - optional
 const tg = window.Telegram?.WebApp;
-const tgUser = tg?.initDataUnsafe?.user || {};
+const tgUser = tg?.initDataUnsafe?.user || null;
+
+// Browser fallback user (saytdan kirganda)
+const currentUser = tgUser || { id: 0, first_name: 'Mehmon', username: '', photo_url: '' };
 
 let menu = [], cart = [], activeCat = 0, modalProduct = null, modalQty = 1;
 const $ = id => document.getElementById(id);
 
-// Init
+// ── INIT ──
 tg?.expand();
-tg?.setHeaderColor('#ff6b35');
+tg?.ready();
 
 async function init() {
-  hideSplash(); // splash ni darhol yashirishni kafolatlash
+  // Splash ni 1s dan keyin har qanday holatda yashir
+  setTimeout(hideSplash, 1000);
+
   try {
-    await saveUser();
+    if (tgUser?.id) await saveUser();
+    else showGuestHeader();
     await loadMenu();
-    loadProfile();
-    loadOrderHistory();
+    if (tgUser?.id) { loadProfile(); loadOrderHistory(); }
+    renderCart();
   } catch(e) {
-    console.error('Init error:', e);
+    console.warn('Init error:', e);
   }
-  renderCart();
 }
 
 function hideSplash() {
-  setTimeout(() => {
-    const splash = $('splash');
-    splash.style.transition = 'opacity 0.4s ease';
-    splash.style.opacity = '0';
-    $('app').classList.remove('hidden');
-    setTimeout(() => { splash.style.display = 'none'; }, 400);
-  }, 1000);
+  const splash = $('splash');
+  splash.style.opacity = '0';
+  $('app').classList.remove('hidden');
+  setTimeout(() => splash.style.display = 'none', 380);
 }
 
-// Telegram user save
+function showGuestHeader() {
+  $('headerName').textContent = 'Mehmon';
+}
+
+// ── USER ──
 async function saveUser() {
-  // Browser da test qilish uchun fallback
-  if (!tgUser.id) {
-    $('headerName').textContent = 'Mehmon';
-    return;
-  }
-  // Try to get profile photo
-  let photoUrl = tgUser.photo_url || '';
-  await post('save_user', { user: { ...tgUser, photo_url: photoUrl } });
+  const res = await post('save_user', { user: tgUser });
+  if (!res.success) return;
 
-  // Update header
   $('headerName').textContent = tgUser.first_name || 'Foydalanuvchi';
-  if (photoUrl) {
-    $('headerAvatar').innerHTML = `<img src="${photoUrl}" alt="">`;
+  if (tgUser.photo_url) {
+    $('headerAvatar').innerHTML = `<img src="${tgUser.photo_url}" alt="">`;
   }
 }
 
-// Menu
+// ── MENU ──
 async function loadMenu() {
   const res = await get('get_menu');
-  if (!res.success) return;
+  if (!res.success || !res.data?.length) {
+    $('productGrid').innerHTML = '<div style="padding:40px;text-align:center;color:var(--subtext)">Menyu yuklanmadi</div>';
+    return;
+  }
   menu = res.data;
   renderCats();
-  renderProducts(activeCat);
+  renderProducts(0);
 }
 
 function renderCats() {
   const tabs = $('catTabs');
-  tabs.innerHTML = `<div class="cat-tab active" onclick="filterCat(0, this)">🍽️ Barchasi</div>`;
+  tabs.innerHTML = '';
+  const all = makeTab('Barchasi', true, () => filterCat(0));
+  tabs.appendChild(all);
   menu.forEach(c => {
-    const d = document.createElement('div');
-    d.className = 'cat-tab';
-    d.textContent = `${c.icon} ${c.name}`;
-    d.onclick = () => filterCat(c.id, d);
-    tabs.appendChild(d);
+    const t = makeTab(c.name, false, () => filterCat(c.id, t));
+    tabs.appendChild(t);
   });
 }
 
-function filterCat(catId, el) {
+function makeTab(label, active, onClick) {
+  const d = document.createElement('div');
+  d.className = 'cat-tab' + (active ? ' active' : '');
+  d.textContent = label;
+  d.onclick = () => {
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    d.classList.add('active');
+    onClick();
+  };
+  return d;
+}
+
+function filterCat(catId) {
   activeCat = catId;
-  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
   renderProducts(catId);
 }
 
 function filterProducts(q) {
   const query = q.toLowerCase();
   document.querySelectorAll('.product-card').forEach(card => {
-    card.style.display = card.dataset.name.toLowerCase().includes(query) ? '' : 'none';
+    card.style.display = card.dataset.name.includes(query) ? '' : 'none';
   });
 }
 
 function renderProducts(catId) {
   const grid = $('productGrid');
   grid.innerHTML = '';
-  const all = catId === 0 ? menu.flatMap(c => c.products) : (menu.find(c => c.id == catId)?.products || []);
+  const all = catId === 0
+    ? menu.flatMap(c => c.products)
+    : (menu.find(c => c.id == catId)?.products || []);
+
+  if (!all.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--subtext)">Mahsulot yo'q</div>`;
+    return;
+  }
+
   all.forEach(p => {
-    const div = document.createElement('div');
-    div.className = 'product-card';
-    div.dataset.name = p.name;
-    div.onclick = () => openModal(p);
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.dataset.name = (p.name || '').toLowerCase();
+    card.onclick = () => openModal(p);
+
     const imgHtml = p.image
-      ? `<img src="${p.image}" class="product-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-      : '';
-    div.innerHTML = `
+      ? `<img src="${p.image}" class="product-thumb" alt="${p.name}" onerror="this.replaceWith(makePlaceholder())">`
+      : thumbPlaceholder();
+
+    card.innerHTML = `
       ${imgHtml}
-      <div class="product-img no-img" ${p.image ? 'style="display:none"' : ''}>🍽️</div>
       <div class="product-body">
         <div class="product-name">${p.name}</div>
         <div class="product-price">${fmt(p.price)}</div>
-        <button class="product-add" onclick="event.stopPropagation();quickAdd(${p.id})">+</button>
+        <button class="product-add" onclick="event.stopPropagation();quickAdd(${p.id})">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <line x1="12" y1="5" x2="12" y2="19" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="5" y1="12" x2="19" y2="12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>`;
-    grid.appendChild(div);
+    grid.appendChild(card);
   });
 }
 
-// Product Modal
+function thumbPlaceholder() {
+  return `<div class="product-thumb-placeholder">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+      <path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/>
+      <line x1="6" y1="1" x2="6" y2="4" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10" y1="1" x2="10" y2="4" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="14" y1="1" x2="14" y2="4" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>`;
+}
+
+// ── MODAL ──
 function openModal(p) {
   modalProduct = p; modalQty = 1;
   $('modalName').textContent = p.name;
-  $('modalDesc').textContent = p.description || 'Mazali taom';
+  $('modalDesc').textContent = p.description || '';
   $('modalPrice').textContent = fmt(p.price);
   $('modalQty').textContent = '1';
   const img = $('modalImg');
-  if (p.image) { img.src = p.image; img.style.display = ''; }
+  if (p.image) { img.src = p.image; img.style.display = 'block'; }
   else img.style.display = 'none';
   $('productModal').classList.remove('hidden');
+  tg?.HapticFeedback?.impactOccurred('light');
 }
 
 function closeModal(e) {
-  if (e.target === $('productModal') || !e) $('productModal').classList.add('hidden');
+  if (e.target.id === 'productModal') $('productModal').classList.add('hidden');
 }
 
 function changeModalQty(d) {
@@ -136,28 +176,30 @@ function addFromModal() {
   addToCart(modalProduct, modalQty);
   $('productModal').classList.add('hidden');
   tg?.HapticFeedback?.notificationOccurred('success');
-  toast(`✅ ${modalProduct.name} savatga qo'shildi`);
+  toast(`${modalProduct.name} savatga qo'shildi`);
 }
 
 function quickAdd(id) {
   const p = menu.flatMap(c => c.products).find(p => p.id == id);
-  if (p) { addToCart(p, 1); toast(`✅ ${p.name} qo'shildi`); }
+  if (!p) return;
+  addToCart(p, 1);
+  tg?.HapticFeedback?.impactOccurred('medium');
+  toast(`${p.name} qo'shildi`);
 }
 
-// Cart
+// ── CART ──
 function addToCart(product, qty = 1) {
-  const existing = cart.find(i => i.id === product.id);
-  if (existing) existing.qty += qty;
-  else cart.push({ id: product.id, name: product.name, price: parseFloat(product.price), qty });
-  renderCart();
+  const ex = cart.find(i => i.id == product.id);
+  if (ex) ex.qty += qty;
+  else cart.push({ id: product.id, name: product.name, price: +product.price, qty });
   updateCartBadge();
 }
 
 function updateCartQty(id, d) {
-  const item = cart.find(i => i.id === id);
+  const item = cart.find(i => i.id == id);
   if (!item) return;
   item.qty += d;
-  if (item.qty <= 0) cart = cart.filter(i => i.id !== id);
+  if (item.qty <= 0) cart = cart.filter(i => i.id != id);
   renderCart();
   updateCartBadge();
 }
@@ -165,6 +207,9 @@ function updateCartQty(id, d) {
 function updateCartBadge() {
   const total = cart.reduce((s, i) => s + i.qty, 0);
   $('cartBadge').textContent = total;
+  const nb = $('navCartBadge');
+  nb.textContent = total;
+  nb.style.display = total > 0 ? 'block' : 'none';
 }
 
 function renderCart() {
@@ -172,135 +217,161 @@ function renderCart() {
   const summary = $('cartSummary');
   updateCartBadge();
 
-  if (cart.length === 0) {
-    container.innerHTML = `<div class="empty-cart">🛒<br><br>Savat bo'sh<br><small>Menuydan ovqat tanlang</small></div>`;
+  if (!cart.length) {
+    container.innerHTML = `
+      <div class="empty-cart">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="#c7c7cc" stroke-width="1.5" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="#c7c7cc" stroke-width="1.5"/><path d="M16 10a4 4 0 01-8 0" stroke="#c7c7cc" stroke-width="1.5"/></svg>
+        <p>Savat bo'sh</p>
+        <small>Menuydan ovqat tanlang</small>
+      </div>`;
     summary.innerHTML = '';
     return;
   }
 
   container.innerHTML = cart.map(i => `
     <div class="cart-item">
-      <div class="cart-item-emoji">🍽️</div>
+      <div class="cart-item-img">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg>
+      </div>
       <div class="cart-item-info">
         <div class="cart-item-name">${i.name}</div>
-        <div class="cart-item-price">${fmt(i.price)} × ${i.qty}</div>
+        <div class="cart-item-price">${fmt(i.price)}</div>
       </div>
       <div class="cart-item-ctrl">
-        <button class="qty-btn" onclick="updateCartQty(${i.id},-1)">−</button>
+        <button class="qty-btn" onclick="updateCartQty(${i.id},-1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </button>
         <span class="qty-val">${i.qty}</span>
-        <button class="qty-btn" onclick="updateCartQty(${i.id},1)">+</button>
+        <button class="qty-btn" onclick="updateCartQty(${i.id},1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </button>
       </div>
     </div>`).join('');
 
-  const subtotal = cartTotal();
-  const delivery = 5000;
+  const sub = cartTotal(), delivery = 5000;
   summary.innerHTML = `
-    <div class="summary-row"><span>Ovqatlar</span><span>${fmt(subtotal)}</span></div>
-    <div class="summary-row"><span>Yetkazib berish</span><span>${fmt(delivery)}</span></div>
-    <div class="summary-row total"><span>Jami</span><span>${fmt(subtotal + delivery)}</span></div>
-    <button class="btn-primary" style="margin-top:14px" onclick="goCheckout()">📦 Buyurtma berish</button>`;
+    <div class="cart-summary-card">
+      <div class="summary-row"><span>Ovqatlar</span><span>${fmt(sub)}</span></div>
+      <div class="summary-row"><span>Yetkazib berish</span><span>${fmt(delivery)}</span></div>
+      <div class="summary-row total"><span>Jami</span><span>${fmt(sub + delivery)}</span></div>
+    </div>
+    <button class="btn-primary" onclick="goCheckout()">Buyurtma berish</button>`;
 }
 
 function cartTotal() { return cart.reduce((s, i) => s + i.price * i.qty, 0); }
 
 function goCheckout() {
-  if (cart.length === 0) return toast('⚠️ Savat bo\'sh!');
-  // Pre-fill from profile
-  const phone = $('profilePhone')?.value || '';
-  const address = $('profileAddress')?.value || '';
-  $('checkoutPhone').value = phone;
-  $('checkoutAddress').value = address;
+  if (!cart.length) return toast('Savat bo\'sh!');
+  if (!tgUser?.id) return toast('Iltimos, Telegram orqali oching!');
 
-  const items = $('orderSummaryItems');
-  items.innerHTML = cart.map(i =>
-    `<div class="os-item"><span>${i.name} × ${i.qty}</span><span>${fmt(i.price*i.qty)}</span></div>`
-  ).join('') + `<div class="os-item" style="font-weight:700"><span>Jami</span><span>${fmt(cartTotal()+5000)}</span></div>`;
-  $('checkoutTotal').textContent = fmt(cartTotal() + 5000);
+  $('checkoutPhone').value = $('profilePhone')?.value || '';
+  $('checkoutAddress').value = $('profileAddress')?.value || '';
+  $('checkoutNote').value = '';
+
+  const itemsHtml = cart.map(i =>
+    `<div class="os-item"><span>${i.name} × ${i.qty}</span><span>${fmt(i.price * i.qty)}</span></div>`
+  ).join('');
+
+  $('orderSummaryItems').innerHTML = `
+    <div class="order-summary-card">
+      ${itemsHtml}
+    </div>`;
+  $('checkoutTotalBar').innerHTML = `
+    <div class="summary-row"><span>Ovqatlar</span><span>${fmt(cartTotal())}</span></div>
+    <div class="summary-row"><span>Yetkazib berish</span><span>${fmt(5000)}</span></div>
+    <div class="summary-row total"><span>Jami</span><span>${fmt(cartTotal() + 5000)}</span></div>`;
+
   showPage('checkout');
+  tg?.BackButton?.show();
 }
 
-// Order submission
+// ── ORDER ──
 async function submitOrder() {
   const phone = $('checkoutPhone').value.trim();
   const address = $('checkoutAddress').value.trim();
   const note = $('checkoutNote').value.trim();
-
-  if (!phone) return toast('⚠️ Telefon raqam kiriting!');
-  if (!address) return toast('⚠️ Manzil kiriting!');
+  if (!phone) return toast('Telefon raqam kiriting!');
+  if (!address) return toast('Manzil kiriting!');
 
   const btn = document.querySelector('.btn-order');
-  btn.disabled = true; btn.textContent = '⏳ Yuborilmoqda...';
+  btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
 
   const res = await post('place_order', {
-    user_id: tgUser.id || 0,
-    items: cart,
-    phone, address, note
+    user_id: tgUser?.id || 0,
+    items: cart, phone, address, note
   });
 
-  btn.disabled = false; btn.textContent = '✅ Buyurtma berish';
+  btn.disabled = false; btn.textContent = 'Buyurtma berish';
 
   if (res.success) {
     cart = [];
     renderCart();
+    updateCartBadge();
     tg?.HapticFeedback?.notificationOccurred('success');
-    tg?.showAlert(`✅ Buyurtmangiz qabul qilindi!\n\n📦 Buyurtma №${res.data.order_id}\n💰 Jami: ${fmt(res.data.total + 5000)}\n\n🕐 30-60 daqiqada yetkazamiz!`);
-    showPage('home');
-    navTo('home', document.querySelector('.nav-item'));
+    tg?.BackButton?.hide();
+    if (tg) {
+      tg.showAlert(`✅ Buyurtma qabul qilindi!\n\n#${res.data.order_id} — ${fmt(res.data.total + 5000)}\n\n30-60 daqiqada yetkazamiz!`);
+    } else {
+      toast('✅ Buyurtma qabul qilindi!');
+    }
+    navTo('home', document.querySelectorAll('.nav-item')[0]);
     loadOrderHistory();
   } else {
-    toast('❌ Xatolik! Qayta urinib ko\'ring.');
+    toast('Xatolik! Qayta urinib ko\'ring.');
   }
 }
 
-// Profile
+// ── PROFILE ──
 async function loadProfile() {
-  if (!tgUser.id) return;
+  if (!tgUser?.id) return;
   const res = await get(`get_profile&user_id=${tgUser.id}`);
   if (!res.success || !res.data) return;
   const u = res.data;
+  const name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
 
-  $('profileName').textContent = `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Foydalanuvchi';
+  $('profileName').textContent = name || 'Foydalanuvchi';
   $('profileUsername').textContent = u.username ? `@${u.username}` : '';
   $('pId').textContent = u.id;
-  $('pName').textContent = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+  $('pName').textContent = name || '—';
   $('pUsername').textContent = u.username ? `@${u.username}` : '—';
   if (u.phone) $('profilePhone').value = u.phone;
   if (u.address) $('profileAddress').value = u.address;
 
   const photo = u.photo_url || tgUser.photo_url || '';
-  if (photo) $('profilePhoto').src = photo;
-  else $('profilePhoto').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name||'U')}&background=ff6b35&color=fff&size=200`;
+  $('profilePhoto').src = photo
+    ? photo
+    : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name || 'U')}&background=ff6b35&color=fff&size=160&bold=true`;
 }
 
 async function saveProfile() {
+  if (!tgUser?.id) return toast('Telegram orqali kirish kerak!');
   const phone = $('profilePhone').value.trim();
   const address = $('profileAddress').value.trim();
-  if (!phone && !address) return toast('⚠️ Ma\'lumot kiriting');
   const res = await post('update_profile', { user_id: tgUser.id, phone, address });
-  if (res.success) { toast('✅ Saqlandi!'); tg?.HapticFeedback?.notificationOccurred('success'); }
+  if (res.success) { toast('Saqlandi!'); tg?.HapticFeedback?.notificationOccurred('success'); }
 }
 
 async function loadOrderHistory() {
-  if (!tgUser.id) return;
+  if (!tgUser?.id) return;
   const res = await get(`my_orders&user_id=${tgUser.id}`);
-  const container = $('orderHistory');
+  const el = $('orderHistory');
   if (!res.success || !res.data?.length) {
-    container.innerHTML = '<div style="color:var(--subtext);font-size:13px;text-align:center;padding:12px">Buyurtmalar yo\'q</div>';
+    el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--subtext);font-size:13px">Buyurtmalar yo'q</div>`;
     return;
   }
-  const statusMap = { new:'🆕 Yangi', confirmed:'✅ Qabul', cooking:'👨‍🍳 Tayyorlanmoqda', delivered:'🚚 Yetkazildi', cancelled:'❌ Bekor' };
-  const statusClass = { new:'s-new', confirmed:'s-confirmed', cooking:'s-new', delivered:'s-confirmed', cancelled:'s-cancelled' };
-  container.innerHTML = res.data.map(o => `
+  const sMap = { new:'Yangi', confirmed:'Qabul', cooking:'Tayyorlanmoqda', delivered:'Yetkazildi', cancelled:'Bekor' };
+  const cMap = { new:'s-new', confirmed:'s-confirmed', cooking:'s-cooking', delivered:'s-delivered', cancelled:'s-cancelled' };
+  el.innerHTML = res.data.map(o => `
     <div class="order-hist-item">
       <div class="order-hist-head">
-        <span>#${o.id} — ${fmt(o.total)}</span>
-        <span class="status-badge ${statusClass[o.status]||'s-new'}">${statusMap[o.status]||o.status}</span>
+        <span class="order-hist-id">#${o.id} — ${fmt(o.total)}</span>
+        <span class="status-badge ${cMap[o.status] || 's-new'}">${sMap[o.status] || o.status}</span>
       </div>
-      <div class="order-hist-sub">${new Date(o.created_at).toLocaleString('uz-UZ')} • ${o.items?.length||0} ta mahsulot</div>
+      <div class="order-hist-sub">${new Date(o.created_at).toLocaleString('uz-UZ')} · ${o.items?.length || 0} ta</div>
     </div>`).join('');
 }
 
-// Navigation
+// ── NAV ──
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   $(`page-${name}`)?.classList.add('active');
@@ -309,18 +380,23 @@ function showPage(name) {
 function navTo(name, el) {
   showPage(name);
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  el.classList.add('active');
+  el?.classList.add('active');
   if (name === 'profile') { loadProfile(); loadOrderHistory(); }
   if (name === 'cart') renderCart();
+  if (name !== 'checkout') tg?.BackButton?.hide();
 }
 
-// Helpers
-function fmt(n) { return Number(n).toLocaleString('uz-UZ') + ' so\'m'; }
+// ── HELPERS ──
+function fmt(n) {
+  return Number(n).toLocaleString('uz-UZ') + ' so\'m';
+}
+
 function toast(msg) {
   const t = $('toast');
-  t.textContent = msg; t.classList.remove('hidden');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.add('hidden'), 2500);
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.add('hidden'), 2400);
 }
 
 async function post(action, data) {
@@ -330,22 +406,25 @@ async function post(action, data) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    return r.json();
+    return await r.json();
   } catch { return { success: false }; }
 }
 
 async function get(action) {
   try {
     const r = await fetch(`${API}?action=${action}`);
-    return r.json();
+    return await r.json();
   } catch { return { success: false }; }
 }
 
-// Telegram back button
+// Telegram Back Button
 tg?.BackButton?.onClick(() => {
   const active = document.querySelector('.page.active')?.id;
-  if (active === 'page-checkout') { showPage('cart'); }
-  else { tg.BackButton.hide(); }
+  if (active === 'page-checkout') {
+    navTo('cart', document.querySelectorAll('.nav-item')[1]);
+  } else {
+    tg.BackButton.hide();
+  }
 });
 
 init();

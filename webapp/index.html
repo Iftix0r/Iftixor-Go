@@ -8,118 +8,155 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-<!-- Splash Screen -->
+
 <div id="splash">
-  <div class="splash-logo">🍽️</div>
+  <div class="splash-icon">
+    <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="30" cy="30" r="30" fill="rgba(255,255,255,0.15)"/>
+      <path d="M15 22c0-1.1.9-2 2-2h26c1.1 0 2 .9 2 2v3H15v-3z" fill="white"/>
+      <rect x="15" y="25" width="30" height="18" rx="2" fill="white" opacity="0.9"/>
+      <circle cx="22" cy="34" r="3" fill="#ff6b35"/>
+      <circle cx="30" cy="34" r="3" fill="#ff6b35"/>
+      <circle cx="38" cy="34" r="3" fill="#ff6b35"/>
+      <rect x="27" y="14" width="6" height="8" rx="3" fill="white"/>
+    </svg>
+  </div>
   <div class="splash-title">Iftixor Go</div>
   <div class="splash-sub">Tez va mazali!</div>
 </div>
 
-<!-- App -->
 <div id="app" class="hidden">
-  <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <div class="header-avatar" id="headerAvatar">👤</div>
+      <div class="header-avatar" id="headerAvatar">
+        <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#ffe5db"/><circle cx="16" cy="13" r="5" fill="#ff6b35"/><path d="M6 26c0-5.5 4.5-9 10-9s10 3.5 10 9" stroke="#ff6b35" stroke-width="2" fill="none"/></svg>
+      </div>
       <div>
         <div class="header-name" id="headerName">Yuklanmoqda...</div>
         <div class="header-sub">Assalomu alaykum 👋</div>
       </div>
     </div>
-    <div class="cart-btn" id="cartBtn" onclick="showPage('cart')">
-      🛒 <span class="cart-badge" id="cartBadge">0</span>
+    <div class="cart-btn" id="cartBtn" onclick="navTo('cart', document.querySelectorAll('.nav-item')[1])">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="white" stroke-width="2" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="white" stroke-width="2"/><path d="M16 10a4 4 0 01-8 0" stroke="white" stroke-width="2"/></svg>
+      <span class="cart-badge" id="cartBadge">0</span>
     </div>
   </header>
 
-  <!-- Pages -->
   <div id="page-home" class="page active">
-    <!-- Search -->
     <div class="search-wrap">
-      <input type="text" id="searchInput" class="search-input" placeholder="🔍 Ovqat qidiring..." oninput="filterProducts(this.value)">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="#8e8e93" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="#8e8e93" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" class="search-input" placeholder="Ovqat qidiring..." oninput="filterProducts(this.value)">
     </div>
-    <!-- Category Tabs -->
     <div class="cat-tabs" id="catTabs"></div>
-    <!-- Products Grid -->
     <div class="products" id="productGrid"></div>
   </div>
 
   <div id="page-cart" class="page">
-    <div class="page-title">🛒 Savat</div>
+    <div class="page-title">Savat</div>
     <div id="cartItems"></div>
-    <div class="cart-summary" id="cartSummary"></div>
+    <div id="cartSummary"></div>
   </div>
 
   <div id="page-profile" class="page">
     <div class="profile-header">
-      <img id="profilePhoto" src="" class="profile-photo" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e0e0e0%22/><text x=%2250%22 y=%2265%22 text-anchor=%22middle%22 font-size=%2240%22>👤</text></svg>'">
-      <div class="profile-name" id="profileName"></div>
+      <img id="profilePhoto" src="" class="profile-photo" alt="">
+      <div class="profile-name" id="profileName">—</div>
       <div class="profile-username" id="profileUsername"></div>
     </div>
-    <div class="profile-info">
-      <div class="info-item"><span class="info-label">🆔 Telegram ID</span><span id="pId"></span></div>
-      <div class="info-item"><span class="info-label">👤 Ism</span><span id="pName"></span></div>
-      <div class="info-item"><span class="info-label">📌 Username</span><span id="pUsername"></span></div>
+    <div class="section-card">
+      <div class="info-row"><span class="info-label">Telegram ID</span><span id="pId" class="info-val">—</span></div>
+      <div class="divider"></div>
+      <div class="info-row"><span class="info-label">Ism</span><span id="pName" class="info-val">—</span></div>
+      <div class="divider"></div>
+      <div class="info-row"><span class="info-label">Username</span><span id="pUsername" class="info-val">—</span></div>
     </div>
-    <div class="form-section">
-      <div class="form-title">✏️ Ma'lumotlarni tahrirlash</div>
-      <input type="tel" id="profilePhone" class="form-input" placeholder="📞 Telefon raqam (+998...)">
-      <input type="text" id="profileAddress" class="form-input" placeholder="📍 Manzil">
-      <button class="btn-primary" onclick="saveProfile()">💾 Saqlash</button>
+    <div class="section-title">Ma'lumotlarni tahrirlash</div>
+    <div class="section-card">
+      <div class="input-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.09 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="#8e8e93" stroke-width="1.5"/></svg>
+        <input type="tel" id="profilePhone" class="inline-input" placeholder="Telefon raqam (+998...)">
+      </div>
+      <div class="divider"></div>
+      <div class="input-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="#8e8e93" stroke-width="1.5"/><circle cx="12" cy="10" r="3" stroke="#8e8e93" stroke-width="1.5"/></svg>
+        <input type="text" id="profileAddress" class="inline-input" placeholder="Manzil">
+      </div>
     </div>
-    <div class="form-section">
-      <div class="form-title">📋 Buyurtmalar tarixi</div>
-      <div id="orderHistory"></div>
-    </div>
+    <button class="btn-primary" onclick="saveProfile()">Saqlash</button>
+    <div class="section-title">Buyurtmalar tarixi</div>
+    <div id="orderHistory"></div>
   </div>
 
   <div id="page-checkout" class="page">
-    <div class="page-title">📦 Buyurtma berish</div>
-    <div class="order-summary" id="orderSummaryItems"></div>
-    <div class="form-section">
-      <input type="tel" id="checkoutPhone" class="form-input" placeholder="📞 Telefon raqam *">
-      <input type="text" id="checkoutAddress" class="form-input" placeholder="📍 Manzil *">
-      <textarea id="checkoutNote" class="form-input" rows="2" placeholder="📝 Izoh (ixtiyoriy)"></textarea>
-      <div class="total-row">Jami: <strong id="checkoutTotal"></strong></div>
-      <button class="btn-primary btn-order" onclick="submitOrder()">✅ Buyurtma berish</button>
-      <button class="btn-secondary" onclick="showPage('cart')">← Orqaga</button>
+    <div class="page-title">Buyurtma berish</div>
+    <div id="orderSummaryItems"></div>
+    <div class="section-card" style="margin:0 16px 16px">
+      <div class="input-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.09 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="#8e8e93" stroke-width="1.5"/></svg>
+        <input type="tel" id="checkoutPhone" class="inline-input" placeholder="Telefon raqam *">
+      </div>
+      <div class="divider"></div>
+      <div class="input-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="#8e8e93" stroke-width="1.5"/><circle cx="12" cy="10" r="3" stroke="#8e8e93" stroke-width="1.5"/></svg>
+        <input type="text" id="checkoutAddress" class="inline-input" placeholder="Manzil *">
+      </div>
+      <div class="divider"></div>
+      <div class="input-row">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="#8e8e93" stroke-width="1.5"/><polyline points="14,2 14,8 20,8" stroke="#8e8e93" stroke-width="1.5"/></svg>
+        <input type="text" id="checkoutNote" class="inline-input" placeholder="Izoh (ixtiyoriy)">
+      </div>
+    </div>
+    <div class="total-bar" id="checkoutTotalBar"></div>
+    <div style="padding:0 16px">
+      <button class="btn-primary btn-order" onclick="submitOrder()">Buyurtma berish</button>
+      <button class="btn-secondary" onclick="navTo('cart', document.querySelectorAll('.nav-item')[1])">Orqaga</button>
     </div>
   </div>
 
-  <!-- Bottom Nav -->
   <nav class="bottom-nav">
     <div class="nav-item active" onclick="navTo('home', this)">
-      <span>🏠</span><span>Menyu</span>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Menyu</span>
     </div>
     <div class="nav-item" onclick="navTo('cart', this)">
-      <span>🛒</span><span>Savat</span>
+      <div class="nav-cart-wrap">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2"/><path d="M16 10a4 4 0 01-8 0" stroke="currentColor" stroke-width="2"/></svg>
+        <span class="nav-badge" id="navCartBadge" style="display:none">0</span>
+      </div>
+      <span>Savat</span>
     </div>
     <div class="nav-item" onclick="navTo('profile', this)">
-      <span>👤</span><span>Profil</span>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Profil</span>
     </div>
   </nav>
 </div>
 
-<!-- Product Detail Modal -->
 <div id="productModal" class="modal-overlay hidden" onclick="closeModal(event)">
   <div class="modal-card">
-    <img id="modalImg" src="" class="modal-img" onerror="this.style.display='none'">
+    <div class="modal-drag"></div>
+    <img id="modalImg" src="" class="modal-img" alt="">
     <div class="modal-body">
       <div class="modal-name" id="modalName"></div>
       <div class="modal-desc" id="modalDesc"></div>
-      <div class="modal-price" id="modalPrice"></div>
-      <div class="modal-qty">
-        <button class="qty-btn" onclick="changeModalQty(-1)">−</button>
-        <span id="modalQty">1</span>
-        <button class="qty-btn" onclick="changeModalQty(1)">+</button>
+      <div class="modal-footer">
+        <div class="modal-price" id="modalPrice"></div>
+        <div class="modal-qty">
+          <button class="qty-btn" onclick="changeModalQty(-1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </button>
+          <span id="modalQty">1</span>
+          <button class="qty-btn" onclick="changeModalQty(1)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
       </div>
-      <button class="btn-primary" onclick="addFromModal()">🛒 Savatga qo'shish</button>
+      <button class="btn-primary" onclick="addFromModal()">Savatga qo'shish</button>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast" class="toast hidden"></div>
-
 <script src="app.js"></script>
 </body>
 </html>
