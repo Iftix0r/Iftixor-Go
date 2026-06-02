@@ -1,4 +1,4 @@
-const API = '../api.php';
+const API = 'https://iftixorgo.bigsaver.ru/api.php';
 
 // Telegram WebApp - optional
 const tg = window.Telegram?.WebApp;
@@ -15,8 +15,8 @@ tg?.expand();
 tg?.ready();
 
 async function init() {
-  // Splash ni 1s dan keyin har qanday holatda yashir
-  setTimeout(hideSplash, 1000);
+  // Splash 900ms dan keyin har qanday holatda yashiriladi
+  const splashTimer = setTimeout(hideSplash, 900);
 
   try {
     if (tgUser?.id) await saveUser();
@@ -26,6 +26,9 @@ async function init() {
     renderCart();
   } catch(e) {
     console.warn('Init error:', e);
+  } finally {
+    clearTimeout(splashTimer);
+    hideSplash();
   }
 }
 
