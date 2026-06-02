@@ -3,7 +3,7 @@
 // Run: php setup.php
 require_once __DIR__ . '/config.php';
 
-$webhookUrl = "https://yourdomain.com/bot.php"; // O'zgartiring!
+$webhookUrl = "https://iftixorgo.bigsaver.ru/bot.php"; // O'zgartiring!
 
 $ch = curl_init("https://api.telegram.org/bot".BOT_TOKEN."/setWebhook");
 curl_setopt_array($ch, [
