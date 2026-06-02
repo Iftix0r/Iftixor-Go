@@ -3,165 +3,205 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Iftixor Go — Admin Panel</title>
+<title>Iftixor Go — Admin</title>
 <link rel="stylesheet" href="admin.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-icon">🍽️</div>
-    <span class="brand-name">Iftixor Go</span>
-    <span class="brand-badge">Admin</span>
+    <div class="brand-icon">
+      <svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#ff6b35"/><path d="M9 14c0-.6.4-1 1-1h16c.6 0 1 .4 1 1v2H9v-2z" fill="white"/><rect x="9" y="16" width="18" height="11" rx="1.5" fill="white" opacity=".9"/><circle cx="14" cy="21.5" r="2" fill="#ff6b35"/><circle cx="18" cy="21.5" r="2" fill="#ff6b35"/><circle cx="22" cy="21.5" r="2" fill="#ff6b35"/><rect x="16.5" y="9" width="3" height="5" rx="1.5" fill="white"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">Iftixor Go</div>
+      <div class="brand-tag">Admin Panel</div>
+    </div>
   </div>
+
   <nav class="sidebar-nav">
     <a class="nav-link active" onclick="switchTab('dashboard')" id="tab-dashboard">
-      <span class="nav-icon">📊</span> Dashboard
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>
+      Dashboard
     </a>
     <a class="nav-link" onclick="switchTab('orders')" id="tab-orders">
-      <span class="nav-icon">📦</span> Buyurtmalar
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1.8"/><line x1="9" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="9" y1="16" x2="13" y2="16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Buyurtmalar
       <span class="nav-badge" id="pendingBadge" style="display:none">0</span>
     </a>
     <a class="nav-link" onclick="switchTab('users')" id="tab-users">
-      <span class="nav-icon">👥</span> Foydalanuvchilar
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M23 21v-2a4 4 0 00-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Foydalanuvchilar
     </a>
     <a class="nav-link" onclick="switchTab('products')" id="tab-products">
-      <span class="nav-icon">🛍️</span> Mahsulotlar
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="currentColor" stroke-width="1.8"/><line x1="6" y1="1" x2="6" y2="4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="1" x2="10" y2="4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="14" y1="1" x2="14" y2="4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Mahsulotlar
     </a>
     <a class="nav-link" onclick="switchTab('broadcast')" id="tab-broadcast">
-      <span class="nav-icon">📢</span> Xabar yuborish
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Xabar yuborish
     </a>
   </nav>
+
   <div class="sidebar-footer">
     <div class="admin-info">
-      <div class="admin-avatar">👤</div>
+      <div class="admin-avatar">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+      </div>
       <div>
-        <div class="admin-name" id="adminName">Admin</div>
+        <div class="admin-name">Admin</div>
         <div class="admin-role">Boshqaruvchi</div>
       </div>
     </div>
   </div>
 </aside>
 
-<!-- Mobile Header -->
 <header class="mobile-header">
-  <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+  <button class="menu-toggle" onclick="toggleSidebar()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
   <span class="mobile-title">Iftixor Go Admin</span>
 </header>
 
-<!-- Overlay for mobile -->
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
-<!-- Main Content -->
 <main class="main-content" id="mainContent">
 
-  <!-- ═══ DASHBOARD ═══ -->
+  <!-- DASHBOARD -->
   <section class="tab-content active" id="content-dashboard">
     <div class="page-header">
-      <h1>Dashboard</h1>
-      <p class="page-desc">Umumiy statistika va holat</p>
+      <div>
+        <h1>Dashboard</h1>
+        <p class="page-desc">Umumiy statistika va holat</p>
+      </div>
+      <button class="btn-sm" onclick="loadDashboard()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Yangilash
+      </button>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card stat-orange">
-        <div class="stat-icon">📦</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
+        </div>
         <div class="stat-info">
           <div class="stat-number" id="sTodayOrders">—</div>
-          <div class="stat-title">Bugungi buyurtmalar</div>
+          <div class="stat-label">Bugungi buyurtmalar</div>
         </div>
       </div>
       <div class="stat-card stat-green">
-        <div class="stat-icon">💰</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none"><line x1="12" y1="1" x2="12" y2="23" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
         <div class="stat-info">
           <div class="stat-number" id="sTodayRevenue">—</div>
-          <div class="stat-title">Bugungi daromad</div>
+          <div class="stat-label">Bugungi daromad</div>
         </div>
       </div>
       <div class="stat-card stat-blue">
-        <div class="stat-icon">👥</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
         <div class="stat-info">
           <div class="stat-number" id="sTotalUsers">—</div>
-          <div class="stat-title">Jami foydalanuvchilar</div>
+          <div class="stat-label">Foydalanuvchilar</div>
         </div>
       </div>
       <div class="stat-card stat-red">
-        <div class="stat-icon">⏳</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
         <div class="stat-info">
           <div class="stat-number" id="sPending">—</div>
-          <div class="stat-title">Kutilayotgan</div>
+          <div class="stat-label">Kutilayotgan</div>
         </div>
       </div>
       <div class="stat-card stat-purple">
-        <div class="stat-icon">📋</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
         <div class="stat-info">
           <div class="stat-number" id="sTotalOrders">—</div>
-          <div class="stat-title">Jami buyurtmalar</div>
+          <div class="stat-label">Jami buyurtmalar</div>
         </div>
       </div>
       <div class="stat-card stat-gold">
-        <div class="stat-icon">🏆</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="6" stroke="currentColor" stroke-width="1.8"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
         <div class="stat-info">
           <div class="stat-number" id="sTotalRevenue">—</div>
-          <div class="stat-title">Jami daromad</div>
+          <div class="stat-label">Jami daromad</div>
         </div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-header">
-        <h2>⏳ Yangi buyurtmalar</h2>
-        <button class="btn-sm" onclick="loadDashboard()">🔄 Yangilash</button>
+        <h2>Yangi buyurtmalar</h2>
       </div>
-      <div id="recentOrders" class="orders-list">Yuklanmoqda...</div>
+      <div id="recentOrders">Yuklanmoqda...</div>
     </div>
   </section>
 
-  <!-- ═══ ORDERS ═══ -->
+  <!-- ORDERS -->
   <section class="tab-content" id="content-orders">
     <div class="page-header">
-      <h1>Buyurtmalar</h1>
+      <div>
+        <h1>Buyurtmalar</h1>
+      </div>
       <div class="filter-row">
         <select id="orderFilter" onchange="loadOrders()">
           <option value="">Barchasi</option>
-          <option value="new">🆕 Yangi</option>
-          <option value="confirmed">✅ Qabul qilingan</option>
-          <option value="cooking">👨‍🍳 Tayyorlanmoqda</option>
-          <option value="delivered">🚚 Yetkazilgan</option>
-          <option value="cancelled">❌ Bekor</option>
+          <option value="new">Yangi</option>
+          <option value="confirmed">Qabul qilingan</option>
+          <option value="cooking">Tayyorlanmoqda</option>
+          <option value="delivered">Yetkazilgan</option>
+          <option value="cancelled">Bekor</option>
         </select>
-        <button class="btn-sm" onclick="loadOrders()">🔄</button>
+        <button class="btn-sm" onclick="loadOrders()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
       </div>
     </div>
-    <div id="ordersList" class="orders-list">Yuklanmoqda...</div>
+    <div id="ordersList">Yuklanmoqda...</div>
   </section>
 
-  <!-- ═══ USERS ═══ -->
+  <!-- USERS -->
   <section class="tab-content" id="content-users">
     <div class="page-header">
-      <h1>Foydalanuvchilar</h1>
+      <div>
+        <h1>Foydalanuvchilar</h1>
+        <p class="page-desc" id="usersCount"></p>
+      </div>
       <div class="filter-row">
-        <input type="text" id="userSearch" placeholder="Ism, username yoki telefon..." onkeyup="searchUsers()">
-        <button class="btn-sm" onclick="loadUsers()">🔄</button>
+        <input type="text" id="userSearch" placeholder="Ism yoki username..." oninput="searchUsers()">
+        <button class="btn-sm" onclick="loadUsers()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
       </div>
     </div>
-    <div id="usersList" class="users-table-wrap">Yuklanmoqda...</div>
+    <div id="usersList">Yuklanmoqda...</div>
   </section>
 
-  <!-- ═══ PRODUCTS ═══ -->
+  <!-- PRODUCTS -->
   <section class="tab-content" id="content-products">
     <div class="page-header">
       <h1>Mahsulotlar</h1>
-      <button class="btn-primary" onclick="showAddProduct()">+ Yangi mahsulot</button>
+      <button class="btn-primary" onclick="showAddProduct()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        Yangi mahsulot
+      </button>
     </div>
 
-    <!-- Add/Edit Product Modal -->
     <div class="modal hidden" id="productModal">
       <div class="modal-box">
         <div class="modal-header">
           <h3 id="productModalTitle">Yangi mahsulot</h3>
-          <button class="modal-close" onclick="closeProductModal()">&times;</button>
+          <button class="modal-close" onclick="closeProductModal()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="editProductId">
@@ -182,12 +222,13 @@
             <input type="number" id="prodPrice" placeholder="25000">
           </div>
           <div class="form-group">
-            <label>Rasm URL (ixtiyoriy)</label>
+            <label>Rasm URL</label>
             <input type="text" id="prodImage" placeholder="https://...">
           </div>
           <div class="form-group" id="prodAvailGroup" style="display:none">
-            <label>
-              <input type="checkbox" id="prodAvailable" checked> Mavjud (sotuvda)
+            <label class="checkbox-label">
+              <input type="checkbox" id="prodAvailable" checked>
+              <span>Sotuvda mavjud</span>
             </label>
           </div>
         </div>
@@ -201,35 +242,49 @@
     <div id="productsList" class="products-grid">Yuklanmoqda...</div>
   </section>
 
-  <!-- ═══ BROADCAST ═══ -->
+  <!-- BROADCAST -->
   <section class="tab-content" id="content-broadcast">
     <div class="page-header">
-      <h1>📢 Xabar yuborish</h1>
-      <p class="page-desc">Barcha foydalanuvchilarga xabar tarqatish</p>
+      <div>
+        <h1>Xabar yuborish</h1>
+        <p class="page-desc">Barcha foydalanuvchilarga xabar tarqatish</p>
+      </div>
     </div>
-
-    <div class="card broadcast-card">
-      <div class="form-group">
-        <label>Xabar matni (Markdown qo'llab-quvvatlanadi)</label>
-        <textarea id="broadcastMsg" rows="6" placeholder="*Salom!* &#10;&#10;Bugun maxsus chegirma 🎉&#10;Barcha ovqatlar 20% arzon!"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Ko'rinish (preview):</label>
-        <div class="broadcast-preview" id="broadcastPreview">Matn kiriting...</div>
-      </div>
-      <div class="broadcast-actions">
+    <div class="broadcast-wrap">
+      <div class="card broadcast-card">
+        <div class="form-group">
+          <label>Xabar matni</label>
+          <textarea id="broadcastMsg" rows="5" placeholder="Salom! Bugun maxsus chegirma 🎉"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Ko'rinish</label>
+          <div class="broadcast-preview" id="broadcastPreview">Matn kiriting...</div>
+        </div>
         <button class="btn-primary btn-broadcast" onclick="sendBroadcast()" id="broadcastBtn">
-          📢 Barchaga yuborish
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Barchaga yuborish
         </button>
+        <div id="broadcastResult" style="display:none"></div>
       </div>
-      <div id="broadcastResult" class="broadcast-result" style="display:none"></div>
     </div>
   </section>
 
 </main>
 
-<div id="adminToast" class="admin-toast hidden"></div>
+<!-- User Detail Modal -->
+<div class="modal hidden" id="userModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Foydalanuvchi</h3>
+      <button class="modal-close" onclick="closeUserModal()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="userModalBody"></div>
+  </div>
+</div>
 
-<script src="admin.js?v=1.0"></script>
+<div id="adminToast" class="admin-toast hidden"></div>
+<script src="admin.js"></script>
 </body>
 </html>
