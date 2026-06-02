@@ -264,6 +264,9 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 14px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding-right: 6px;
 }
 .product-admin-card {
   background: var(--bg-card);
