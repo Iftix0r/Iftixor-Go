@@ -45,13 +45,13 @@ function toggleSidebar() {
 
 // ── DASHBOARD ──
 function loadDashboard() {
-  var refreshBtn = document.querySelector('#content-dashboard .btn-sm');
+  var refreshBtn = document.getElementById('dashRefreshBtn');
   if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '...'; }
 
   get('admin_stats').then(function(res) {
     if (refreshBtn) {
       refreshBtn.disabled = false;
-      refreshBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Yangilash';
+      refreshBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Yangilash';
     }
     if (!res.success) {
       ['sTodayOrders','sTodayRevenue','sTotalUsers','sPending','sTotalOrders','sTotalRevenue','sBlockedUsers'].forEach(function(id){ setText(id, '—'); });
@@ -97,7 +97,7 @@ function loadOrders() {
       return;
     }
     _allOrders = res.data;
-    el.innerHTML = '<div class="orders-list">' + res.data.map(renderOrderRow).join('') + '</div>';
+    el.innerHTML = res.data.map(renderOrderRow).join('');
   });
 }
 
@@ -152,7 +152,7 @@ function showOrderDetail(orderId) {
   var itemsHtml = (o.items || []).map(function(i) {
     return '<div class="order-detail-item">' +
       '<span>' + esc(i.name) + ' <span style="color:var(--text-dim)">×' + i.qty + '</span></span>' +
-      '<span style="font-weight:600">' + fmt(i.price * i.qty) + '</span>' +
+      '<span style="font-weight:600">' + fmtFull(i.price * i.qty) + '</span>' +
     '</div>';
   }).join('');
 
@@ -183,7 +183,7 @@ function showOrderDetail(orderId) {
       '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Mahsulotlar</div>' +
       '<div style="display:grid;gap:6px;margin-bottom:14px">' + itemsHtml + '</div>' +
       '<div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;font-size:16px;font-weight:700">' +
-        '<span>Jami</span><span style="color:var(--accent)">' + fmt(o.total) + '</span>' +
+        '<span>Jami</span><span style="color:var(--accent)">' + fmtFull(o.total) + '</span>' +
       '</div>' +
     '</div>' +
     '<div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">' +
@@ -204,9 +204,9 @@ function updateOrderStatus(id, status) {
   if (!status) return;
   post('admin_update_order', { order_id: id, status: status }).then(function(res) {
     if (res.success) {
-      adminToast('Buyurtma #' + id + ' yangilandi');
+      adminToast('Buyurtma #' + id + ' yangilandi', 'success');
       loadOrders(); loadDashboard();
-    } else adminToast('Xatolik!');
+    } else adminToast('Xatolik!', 'error');
   });
 }
 
@@ -234,8 +234,9 @@ function loadUsers() {
 
 function renderUsers(list) {
   var el = document.getElementById('usersList');
-  if (!list.length) { el.innerHTML = emptyState('Foydalanuvchilar topilmadi', iconUsers()); return; }
-  el.innerHTML = '<div class="users-grid">' + list.map(function(u) {
+  if (!list.length) { el.className = ''; el.innerHTML = emptyState('Foydalanuvchilar topilmadi', iconUsers()); return; }
+  el.className = 'users-grid';
+  el.innerHTML = list.map(function(u) {
     var name = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || 'Noma\'lum';
     var photo = u.photo_url
       ? '<img src="' + u.photo_url + '" class="user-card-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
@@ -253,7 +254,7 @@ function renderUsers(list) {
       '</div>' +
       '<svg class="user-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
     '</div>';
-  }).join('') + '</div>';
+  }).join('');
 }
 
 function showUserDetail(userId) {
@@ -335,10 +336,10 @@ function promptBlockUser(userId) {
   if (reason === null) return; // Cancel bosildi
   post('admin_block_user', { user_id: userId, reason: reason }).then(function(res) {
     if (res.success) {
-      adminToast('Foydalanuvchi bloklandi');
+      adminToast('Foydalanuvchi bloklandi', 'success');
       closeUserModal();
       loadUsers();
-    } else adminToast('Xatolik yuz berdi!');
+    } else adminToast('Xatolik yuz berdi!', 'error');
   });
 }
 
@@ -346,10 +347,10 @@ function unblockUser(userId) {
   if (!confirm('Foydalanuvchini blokdan chiqarasizmi?')) return;
   post('admin_unblock_user', { user_id: userId }).then(function(res) {
     if (res.success) {
-      adminToast('Foydalanuvchi blokdan chiqarildi');
+      adminToast('Foydalanuvchi blokdan chiqarildi', 'success');
       closeUserModal();
       loadUsers();
-    } else adminToast('Xatolik yuz berdi!');
+    } else adminToast('Xatolik yuz berdi!', 'error');
   });
 }
 
@@ -358,8 +359,8 @@ function promptSendMessage(userId) {
   var msg = prompt('Foydalanuvchiga yubormoqchi bo\'lgan xabaringiz:');
   if (!msg || !msg.trim()) return;
   post('admin_send_message', { user_id: userId, message: msg.trim() }).then(function(res) {
-    if (res.success) adminToast('Xabar yuborildi ✓');
-    else adminToast('Xabar yuborilmadi!');
+    if (res.success) adminToast('Xabar yuborildi ✓', 'success');
+    else adminToast('Xabar yuborilmadi!', 'error');
   });
 }
 
@@ -495,15 +496,25 @@ function sendBroadcast() {
 }
 
 // ── HELPERS ──
-function fmt(n) { return Number(n).toLocaleString('uz-UZ') + " so'm"; }
+function fmt(n) {
+  var num = Number(n);
+  if (num >= 1000000) return (num/1000000).toFixed(1).replace('.0','') + ' mln so\'m';
+  if (num >= 1000) return (num/1000).toFixed(0) + ' ming so\'m';
+  return num.toLocaleString('uz-UZ') + " so'm";
+}
+function fmtFull(n) { return Number(n).toLocaleString('uz-UZ') + " so'm"; }
 function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
 function avatarUrl(name) { return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name||'?') + '&background=ff6b35&color=fff&size=80&bold=true'; }
 function emptyState(msg, icon) { return '<div class="empty-state">' + icon + '<p>' + msg + '</p></div>'; }
 
-function adminToast(msg) {
+function adminToast(msg, type) {
   var t = document.getElementById('adminToast');
-  t.textContent = msg; t.classList.remove('hidden');
-  clearTimeout(t._t); t._t = setTimeout(function() { t.classList.add('hidden'); }, 2500);
+  t.textContent = msg;
+  t.style.borderColor = type === 'error' ? 'rgba(239,68,68,.3)' : type === 'success' ? 'rgba(34,197,94,.3)' : '';
+  t.style.setProperty('--dot', type === 'error' ? 'var(--red)' : type === 'success' ? 'var(--green)' : 'var(--accent)');
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t = setTimeout(function() { t.classList.add('hidden'); }, 2800);
 }
 
 function get(action) {
