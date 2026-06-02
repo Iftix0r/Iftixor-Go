@@ -1,0 +1,4 @@
+{
+  "summary": "User asked to improve the Iftixor Go project. Implemented security and consistency fixes: new auth.php with Telegram initData validation; api.php admin auth via initData/admin_id, server-side price validation retained, delivery fee in order total, get_config endpoint; admin panel wired with Telegram WebApp, admin_id on all requests, access gate UI; app.js uses relative API URLs, initData headers, dynamic delivery fee; upload.php requires admin auth; DELIVERY_FEE in config; config.example.php added.",
+  "current_status": "Telegram restaurant Mini App + admin panel with improved API security, admin panel auth fix, and unified delivery pricing. Changes are local (api.php was already modified); deploy to server and ensure ADMIN_IDS includes admin Telegram IDs for admin panel access."
+}

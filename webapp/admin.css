@@ -697,3 +697,21 @@ body {
 #prodImageUploadStatus.uploading { color: var(--accent); }
 #prodImageUploadStatus.success   { color: var(--green); }
 #prodImageUploadStatus.error     { color: var(--red); }
+
+.hidden { display: none !important; }
+
+.admin-access-gate {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+.admin-access-box {
+  text-align: center; max-width: 360px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 40px 28px;
+  box-shadow: var(--shadow);
+}
+.admin-access-icon { font-size: 48px; margin-bottom: 16px; }
+.admin-access-box h2 { font-size: 20px; margin-bottom: 10px; }
+.admin-access-box p { color: var(--text-dim); font-size: 14px; line-height: 1.5; }

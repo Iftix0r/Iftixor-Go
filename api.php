@@ -2,11 +2,12 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-Telegram-Init-Data');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
 require_once 'config.php';
 require_once 'db.php';
+require_once 'auth.php';
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -14,6 +15,23 @@ $input = json_decode(file_get_contents('php://input'), true) ?? [];
 function resp($data, $success = true): void {
     echo json_encode(['success' => $success, 'data' => $data]);
     exit;
+}
+
+function requireAdmin(): void {
+    global $input;
+    $tgUser = validateInitData(getInitDataFromRequest());
+    if ($tgUser && isAdminId((int)$tgUser['id'])) return;
+    $adminId = (int)($input['admin_id'] ?? $_GET['admin_id'] ?? 0);
+    if ($adminId && isAdminId($adminId)) return;
+    resp('Unauthorized', false);
+}
+
+$adminActions = ['admin_stats','admin_orders','admin_users','admin_user_orders',
+    'admin_block_user','admin_unblock_user','admin_delete_user','admin_send_message',
+    'admin_update_order','admin_broadcast','admin_add_product','admin_edit_product',
+    'admin_delete_product','admin_categories','admin_products'];
+if (in_array($action, $adminActions, true)) {
+    requireAdmin();
 }
 
 function tgReq(string $method, array $params = []): array {
@@ -33,8 +51,13 @@ function tgReq(string $method, array $params = []): array {
 switch ($action) {
 
     // ── USER ──
+    case 'get_config':
+        resp(['delivery_fee' => DELIVERY_FEE, 'currency' => CURRENCY]);
+        break;
+
     case 'save_user':
-        $u = $input['user'] ?? [];
+        $tgUser = validateInitData(getInitDataFromRequest());
+        $u = $tgUser ?: ($input['user'] ?? []);
         if (empty($u['id'])) resp('No user data', false);
         db()->prepare("INSERT INTO users (id, username, first_name, last_name, photo_url, language_code)
             VALUES (:id,:un,:fn,:ln,:ph,:lc)
@@ -49,7 +72,9 @@ switch ($action) {
         break;
 
     case 'update_profile':
-        $id = $input['user_id'] ?? 0;
+        $auth = requireTelegramUser();
+        $id = (int)($input['user_id'] ?? 0);
+        if ($id !== (int)$auth['id']) resp('Unauthorized', false);
         if (!$id) resp('No ID', false);
         db()->prepare("UPDATE users SET phone=?, address=? WHERE id=?")
             ->execute([$input['phone'] ?? '', $input['address'] ?? '', $id]);
@@ -57,7 +82,9 @@ switch ($action) {
         break;
 
     case 'get_profile':
-        $id = $_GET['user_id'] ?? 0;
+        $auth = requireTelegramUser();
+        $id = (int)($_GET['user_id'] ?? 0);
+        if ($id !== (int)$auth['id']) resp('Unauthorized', false);
         $s = db()->prepare("SELECT * FROM users WHERE id=?");
         $s->execute([$id]);
         resp($s->fetch() ?: []);
@@ -77,12 +104,15 @@ switch ($action) {
 
     // ── ORDER ──
     case 'place_order':
-        $userId  = $input['user_id'] ?? 0;
+        $auth = requireTelegramUser();
+        $userId  = (int)($input['user_id'] ?? 0);
+        if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
         $items   = $input['items']   ?? [];
-        $address = $input['address'] ?? '';
-        $phone   = $input['phone']   ?? '';
-        $note    = $input['note']    ?? '';
+        $address = trim($input['address'] ?? '');
+        $phone   = trim($input['phone'] ?? '');
+        $note    = trim($input['note'] ?? '');
         if (!$userId || empty($items)) resp('Invalid data', false);
+        if (!$phone || !$address) resp('Telefon va manzil kerak', false);
 
         // Block tekshiruvi
         $chk = db()->prepare("SELECT is_blocked, block_reason FROM users WHERE id=?");
@@ -92,7 +122,32 @@ switch ($action) {
             resp('Siz bloklangansiz' . ($cu['block_reason'] ? ': ' . $cu['block_reason'] : ''), false);
         }
 
-        $total = array_sum(array_map(fn($i) => $i['price'] * $i['qty'], $items));
+        // Narxlarni DB dan tekshirish (manipulation oldini olish)
+        $productIds = array_map(fn($i) => (int)$i['id'], $items);
+        if (empty($productIds)) resp('Bo\'sh buyurtma', false);
+        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+        $dbProds = db()->prepare("SELECT id, price, name FROM products WHERE id IN ($placeholders) AND available=1");
+        $dbProds->execute($productIds);
+        $priceMap = [];
+        foreach ($dbProds->fetchAll() as $p) $priceMap[$p['id']] = ['price' => (float)$p['price'], 'name' => $p['name']];
+
+        $validatedItems = [];
+        foreach ($items as $item) {
+            $pid = (int)($item['id'] ?? 0);
+            if (!isset($priceMap[$pid])) continue; // Mavjud bo'lmagan mahsulot
+            $qty = max(1, (int)($item['qty'] ?? 1));
+            $validatedItems[] = [
+                'id'    => $pid,
+                'name'  => $priceMap[$pid]['name'],
+                'price' => $priceMap[$pid]['price'], // DB narxi
+                'qty'   => $qty,
+            ];
+        }
+        if (empty($validatedItems)) resp('Hech bir mahsulot topilmadi', false);
+        $items = $validatedItems;
+
+        $subtotal = array_sum(array_map(fn($i) => $i['price'] * $i['qty'], $items));
+        $total = $subtotal + DELIVERY_FEE;
         $stmt = db()->prepare("INSERT INTO orders (user_id, items, total, address, phone, note) VALUES (?,?,?,?,?,?)");
         $stmt->execute([$userId, json_encode($items, JSON_UNESCAPED_UNICODE), $total, $address, $phone, $note]);
         $orderId = db()->lastInsertId();
@@ -111,6 +166,7 @@ switch ($action) {
              . "📍 *Manzil:* $address\n"
              . ($note ? "📝 *Izoh:* $note\n" : '')
              . "\n🛒 *Buyurtma:*\n$itemList\n\n"
+             . "🚚 *Yetkazish:* ".number_format(DELIVERY_FEE)." ".CURRENCY."\n"
              . "💰 *Jami: ".number_format($total)." ".CURRENCY."*\n"
              . "🕐 ".date('d.m.Y H:i');
 
@@ -121,11 +177,13 @@ switch ($action) {
                 ['text' => '❌ Bekor', 'callback_data' => "cancel_$orderId"],
             ]]]
         ]);
-        resp(['order_id' => $orderId, 'total' => $total]);
+        resp(['order_id' => $orderId, 'total' => $total, 'subtotal' => $subtotal, 'delivery_fee' => DELIVERY_FEE]);
         break;
 
     case 'my_orders':
-        $userId = $_GET['user_id'] ?? 0;
+        $auth = requireTelegramUser();
+        $userId = (int)($_GET['user_id'] ?? 0);
+        if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
         $s = db()->prepare("SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 20");
         $s->execute([$userId]);
         $list = $s->fetchAll();
@@ -133,7 +191,7 @@ switch ($action) {
         resp($list);
         break;
 
-    // ══════════ ADMIN ══════════
+// ══════════ ADMIN ══════════
 
     case 'admin_stats':
         $today = date('Y-m-d');

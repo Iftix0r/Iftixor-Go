@@ -9,3 +9,4 @@ define('DB_NAME', 'iftixorgo');
 define('DB_USER', 'bulungur');
 define('DB_PASS', 'Iftixor2006');
 define('CURRENCY', 'so\'m');
+define('DELIVERY_FEE', 5000);

@@ -1,18 +1,62 @@
-var API = 'https://iftixorgo.bigsaver.ru/api.php';
+var API = new URL('../api.php', window.location.href).href;
+var UPLOAD_API = new URL('../upload.php', window.location.href).href;
+var tg = window.Telegram ? window.Telegram.WebApp : null;
+var adminId = 0;
+var adminReady = false;
 var categories = [];
 var allUsers = [];
 
+function apiHeaders(json) {
+  var h = json ? { 'Content-Type': 'application/json' } : {};
+  if (tg && tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+  return h;
+}
+
+function withAdmin(action) {
+  return action + '&admin_id=' + adminId;
+}
+
+function showAccessDenied(msg) {
+  var gate = document.getElementById('adminAccessGate');
+  var main = document.getElementById('mainContent');
+  if (gate) {
+    gate.classList.remove('hidden');
+    var p = gate.querySelector('p');
+    if (p) p.textContent = msg;
+  }
+  if (main) main.style.display = 'none';
+  var sb = document.getElementById('sidebar');
+  if (sb) sb.style.display = 'none';
+}
+
+function initAdmin() {
+  if (tg) {
+    try { tg.ready(); tg.expand(); } catch (e) {}
+    var u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (u && u.id) {
+      adminId = u.id;
+      var nameEl = document.querySelector('.admin-name');
+      if (nameEl) nameEl.textContent = u.first_name || 'Admin';
+    }
+  }
+  if (!adminId) {
+    showAccessDenied('Admin panel faqat Telegram bot orqali ochiladi.');
+    return;
+  }
+  adminReady = true;
+  loadDashboard();
+}
+
 // ── INIT ──
 window.addEventListener('load', function() {
-  loadDashboard();
-  // Auto-refresh every 30s
+  initAdmin();
   setInterval(function() {
+    if (!adminReady) return;
     var active = document.querySelector('.tab-content.active');
     if (active && active.id === 'content-dashboard') loadDashboard();
     if (active && active.id === 'content-orders') loadOrders();
   }, 30000);
 
-  // Broadcast preview
   var bMsg = document.getElementById('broadcastMsg');
   if (bMsg) bMsg.addEventListener('input', function() {
     var p = document.getElementById('broadcastPreview');
@@ -22,6 +66,7 @@ window.addEventListener('load', function() {
 
 // ── TABS ──
 function switchTab(name) {
+  if (!adminReady) return;
   document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.remove('active'); });
   document.querySelectorAll('.nav-link').forEach(function(el) { el.classList.remove('active'); });
   var c = document.getElementById('content-' + name);
@@ -48,12 +93,16 @@ function loadDashboard() {
   var refreshBtn = document.getElementById('dashRefreshBtn');
   if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '...'; }
 
-  get('admin_stats').then(function(res) {
+  get(withAdmin('admin_stats')).then(function(res) {
     if (refreshBtn) {
       refreshBtn.disabled = false;
       refreshBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Yangilash';
     }
     if (!res.success) {
+      if (res.data === 'Unauthorized') {
+        showAccessDenied('Sizda admin huquqi yo\'q. ADMIN_IDS ro\'yxatiga ID qo\'shing.');
+        return;
+      }
       ['sTodayOrders','sTodayRevenue','sTotalUsers','sPending','sTotalOrders','sTotalRevenue','sBlockedUsers'].forEach(function(id){ setText(id, '—'); });
       document.getElementById('recentOrders').innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:13px">⚠️ Server ulanmadi — F12 Console da xatoni tekshiring</div>';
       // Console da batafsil
@@ -72,7 +121,7 @@ function loadDashboard() {
     var blkEl = document.getElementById('sBlockedUsers');
     if (blkEl) blkEl.textContent = d.blocked_users || 0;
   });
-  get('admin_orders&status=new&limit=10').then(function(res) {
+  get(withAdmin('admin_orders&status=new&limit=10')).then(function(res) {
     var el = document.getElementById('recentOrders');
     if (!res.success || !res.data || !res.data.length) {
       el.innerHTML = emptyState('Yangi buyurtmalar yo\'q', iconCheck());
@@ -89,7 +138,7 @@ function loadDashboard() {
 function loadOrders() {
   var filter = document.getElementById('orderFilter');
   var status = filter ? filter.value : '';
-  var url = 'admin_orders&limit=100' + (status ? '&status=' + status : '');
+  var url = withAdmin('admin_orders&limit=100' + (status ? '&status=' + status : ''));
   get(url).then(function(res) {
     var el = document.getElementById('ordersList');
     if (!res.success || !res.data || !res.data.length) {
@@ -202,7 +251,7 @@ function closeOrderDetail() { document.getElementById('orderDetailModal').classL
 
 function updateOrderStatus(id, status) {
   if (!status) return;
-  post('admin_update_order', { order_id: id, status: status }).then(function(res) {
+  post('admin_update_order', { order_id: id, status: status, admin_id: adminId }).then(function(res) {
     if (res.success) {
       adminToast('Buyurtma #' + id + ' yangilandi', 'success');
       loadOrders(); loadDashboard();
@@ -224,7 +273,7 @@ function searchUsers() {
 }
 
 function loadUsers() {
-  get('admin_users').then(function(res) {
+  get(withAdmin('admin_users')).then(function(res) {
     if (!res.success || !res.data) return;
     allUsers = res.data;
     setText('usersCount', 'Jami: ' + allUsers.length + ' ta foydalanuvchi');
@@ -298,7 +347,7 @@ function showUserDetail(userId) {
     '</div>';
   document.getElementById('userModal').classList.remove('hidden');
   // Buyurtmalar tarixini yuklash
-  get('admin_user_orders&user_id=' + u.id).then(function(res) {
+  get(withAdmin('admin_user_orders&user_id=' + u.id)).then(function(res) {
     var el = document.getElementById('userOrderHistory');
     if (!el) return;
     if (!res.success || !res.data || !res.data.length) {
@@ -334,7 +383,7 @@ function closeUserModal() { document.getElementById('userModal').classList.add('
 function promptBlockUser(userId) {
   var reason = prompt('Bloklash sababi (ixtiyoriy):');
   if (reason === null) return; // Cancel bosildi
-  post('admin_block_user', { user_id: userId, reason: reason }).then(function(res) {
+  post('admin_block_user', { user_id: userId, reason: reason, admin_id: adminId }).then(function(res) {
     if (res.success) {
       adminToast('Foydalanuvchi bloklandi', 'success');
       closeUserModal();
@@ -345,7 +394,7 @@ function promptBlockUser(userId) {
 
 function unblockUser(userId) {
   if (!confirm('Foydalanuvchini blokdan chiqarasizmi?')) return;
-  post('admin_unblock_user', { user_id: userId }).then(function(res) {
+  post('admin_unblock_user', { user_id: userId, admin_id: adminId }).then(function(res) {
     if (res.success) {
       adminToast('Foydalanuvchi blokdan chiqarildi', 'success');
       closeUserModal();
@@ -358,7 +407,7 @@ function unblockUser(userId) {
 function promptSendMessage(userId) {
   var msg = prompt('Foydalanuvchiga yubormoqchi bo\'lgan xabaringiz:');
   if (!msg || !msg.trim()) return;
-  post('admin_send_message', { user_id: userId, message: msg.trim() }).then(function(res) {
+  post('admin_send_message', { user_id: userId, message: msg.trim(), admin_id: adminId }).then(function(res) {
     if (res.success) adminToast('Xabar yuborildi ✓', 'success');
     else adminToast('Xabar yuborilmadi!', 'error');
   });
@@ -386,8 +435,9 @@ function handleImageUpload(input) {
   var formData = new FormData();
   formData.append('image', file);
 
-  fetch('https://iftixorgo.bigsaver.ru/upload.php', {
+  fetch(UPLOAD_API, {
     method: 'POST',
+    headers: apiHeaders(false),
     body: formData
   }).then(function(r) { return r.json(); })
     .then(function(res) {
@@ -437,8 +487,8 @@ function resetImageUpload() {
 
 // ── PRODUCTS ──
 function loadProducts() {
-  get('admin_categories').then(function(res) { if (res.success && res.data) categories = res.data; });
-  get('admin_products').then(function(res) {
+  get(withAdmin('admin_categories')).then(function(res) { if (res.success && res.data) categories = res.data; });
+  get(withAdmin('admin_products')).then(function(res) {
     var el = document.getElementById('productsList');
     if (!res.success || !res.data || !res.data.length) { el.innerHTML = emptyState('Mahsulotlar yo\'q', iconBox()); return; }
     // Store products for editProduct access
@@ -531,10 +581,12 @@ function saveProduct() {
   if (id) {
     data.id = parseInt(id);
     data.available = document.getElementById('prodAvailable').checked ? 1 : 0;
+    data.admin_id = adminId;
     post('admin_edit_product', data).then(function(res) {
       if (res.success) { adminToast('Mahsulot yangilandi'); closeProductModal(); loadProducts(); }
     });
   } else {
+    data.admin_id = adminId;
     post('admin_add_product', data).then(function(res) {
       if (res.success) { adminToast('Mahsulot qo\'shildi'); closeProductModal(); loadProducts(); }
     });
@@ -543,7 +595,7 @@ function saveProduct() {
 
 function deleteProduct(id) {
   if (!confirm('Bu mahsulotni o\'chirmoqchimisiz?')) return;
-  post('admin_delete_product', { id: id }).then(function(res) {
+  post('admin_delete_product', { id: id, admin_id: adminId }).then(function(res) {
     if (res.success) { adminToast('Mahsulot o\'chirildi'); loadProducts(); }
   });
 }
@@ -557,7 +609,7 @@ function sendBroadcast() {
   if (!confirm(targetLabel + ' yuborasizmi?')) return;
   var btn = document.getElementById('broadcastBtn');
   btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
-  post('admin_broadcast', { message: msg, target: target }).then(function(res) {
+  post('admin_broadcast', { message: msg, target: target, admin_id: adminId }).then(function(res) {
     btn.disabled = false;
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Barchaga yuborish';
     var r = document.getElementById('broadcastResult');
@@ -596,18 +648,21 @@ function adminToast(msg, type) {
 }
 
 function get(action) {
+  if (!adminReady) return Promise.resolve({ success: false });
   var controller = new AbortController();
   var timer = setTimeout(function(){ controller.abort(); }, 8000);
-  return fetch(API + '?action=' + action, { signal: controller.signal })
+  return fetch(API + '?action=' + action, { signal: controller.signal, headers: apiHeaders(false) })
     .then(function(r) { clearTimeout(timer); return r.json(); })
     .catch(function() { clearTimeout(timer); return { success: false }; });
 }
 
 function post(action, data) {
+  if (!adminReady) return Promise.resolve({ success: false });
+  if (!data.admin_id) data.admin_id = adminId;
   var controller = new AbortController();
   var timer = setTimeout(function(){ controller.abort(); }, 8000);
   return fetch(API + '?action=' + action, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: apiHeaders(true),
     body: JSON.stringify(data), signal: controller.signal
   }).then(function(r) { clearTimeout(timer); return r.json(); })
     .catch(function() { clearTimeout(timer); return { success: false }; });

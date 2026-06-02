@@ -1,7 +1,8 @@
-const API = 'https://iftixorgo.bigsaver.ru/api.php';
+const API = new URL('../api.php', window.location.href).href;
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 let tgUser = null;
 let menu = [], cart = [], activeCat = 0, modalProduct = null, modalQty = 1;
+let deliveryFee = 5000;
 const $ = id => document.getElementById(id);
 
 // ── INIT ──
@@ -23,6 +24,7 @@ async function init() {
   }
   const splashTimer = setTimeout(hideSplash, 900);
   try {
+    await loadConfig();
     if (tgUser && tgUser.id) await saveUser();
     else showGuestHeader();
     await loadMenu();
@@ -60,6 +62,13 @@ async function saveUser() {
     $('headerAvatar').innerHTML = `<img src="${tgUser.photo_url}" alt="">`;
   const res = await post('save_user', { user: tgUser });
   if (!res.success) console.warn('save_user failed');
+}
+
+async function loadConfig() {
+  const res = await get('get_config');
+  if (res.success && res.data && res.data.delivery_fee != null) {
+    deliveryFee = Number(res.data.delivery_fee);
+  }
 }
 
 // ── MENU ──
@@ -327,7 +336,7 @@ function renderCart() {
       </div>`;
     }).join('');
 
-  const sub = cartTotal(), delivery = 5000;
+  const sub = cartTotal(), delivery = deliveryFee;
   summary.innerHTML = `
     <div class="cart-summary-card">
       <div class="summary-row"><span>Ovqatlar</span><span>${fmt(sub)}</span></div>
@@ -353,7 +362,7 @@ function goCheckout() {
   $('checkoutAddress').value = ad ? ad.value : '';
   $('checkoutNote').value = '';
 
-  const sub = cartTotal(), delivery = 5000;
+  const sub = cartTotal(), delivery = deliveryFee;
   $('orderSummaryItems').innerHTML = `
     <div class="order-summary-card">
       ${cart.map(i => `<div class="os-item"><span>${esc(i.name)} × ${i.qty}</span><span>${fmt(i.price * i.qty)}</span></div>`).join('')}
@@ -392,7 +401,7 @@ async function submitOrder() {
     updateCartBadge();
     if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     if (tg && tg.BackButton) tg.BackButton.hide();
-    showOrderSuccess(res.data.order_id, res.data.total + 5000);
+    showOrderSuccess(res.data.order_id, res.data.total);
     loadOrderHistory();
   } else {
     const msg = typeof res.data === 'string' ? res.data : 'Xatolik yuz berdi!';
@@ -516,11 +525,17 @@ function toast(msg) {
   t._t = setTimeout(() => t.classList.add('hidden'), 2600);
 }
 
+function apiHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (tg && tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+  return h;
+}
+
 async function post(action, data) {
   try {
     const r = await fetch(`${API}?action=${action}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders(),
       body: JSON.stringify(data)
     });
     return await r.json();
@@ -529,7 +544,7 @@ async function post(action, data) {
 
 async function get(action) {
   try {
-    const r = await fetch(`${API}?action=${action}`);
+    const r = await fetch(`${API}?action=${action}`, { headers: apiHeaders() });
     return await r.json();
   } catch { return { success: false }; }
 }
