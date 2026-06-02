@@ -31,8 +31,8 @@ function tgRequest(string $method, array $params = []): array {
     return json_decode($res, true) ?? [];
 }
 
-match($action) {
-    'save_user' => (function() use ($input) {
+switch ($action) {
+    case 'save_user':
         $u = $input['user'] ?? [];
         if (empty($u['id'])) response('No user data', false);
 
@@ -49,35 +49,36 @@ match($action) {
             ':lang' => $u['language_code'] ?? 'uz',
         ]);
         response('saved');
-    })(),
+        break;
 
-    'update_profile' => (function() use ($input) {
+    case 'update_profile':
         $id = $input['user_id'] ?? 0;
         if (!$id) response('No ID', false);
         db()->prepare("UPDATE users SET phone=:phone, address=:address WHERE id=:id")
             ->execute([':phone' => $input['phone'] ?? '', ':address' => $input['address'] ?? '', ':id' => $id]);
         response('updated');
-    })(),
+        break;
 
-    'get_profile' => (function() {
+    case 'get_profile':
         $id = $_GET['user_id'] ?? 0;
         $user = db()->prepare("SELECT * FROM users WHERE id=?");
         $user->execute([$id]);
-        response($user->fetch() ?: []);
-    })(),
+        $data = $user->fetch();
+        response($data ?: []);
+        break;
 
-    'get_menu' => (function() {
+    case 'get_menu':
         $cats = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
         $prods = db()->query("SELECT * FROM products WHERE available=1 ORDER BY category_id")->fetchAll();
         $menu = [];
         foreach ($cats as $c) {
-            $c['products'] = array_values(array_filter($prods, fn($p) => $p['category_id'] == $c['id']));
+            $c['products'] = array_values(array_filter($prods, function($p) use ($c) { return $p['category_id'] == $c['id']; }));
             $menu[] = $c;
         }
         response($menu);
-    })(),
+        break;
 
-    'place_order' => (function() use ($input) {
+    case 'place_order':
         $userId = $input['user_id'] ?? 0;
         $items = $input['items'] ?? [];
         $address = $input['address'] ?? '';
@@ -86,7 +87,7 @@ match($action) {
 
         if (!$userId || empty($items)) response('Invalid data', false);
 
-        $total = array_sum(array_map(fn($i) => $i['price'] * $i['qty'], $items));
+        $total = array_sum(array_map(function($i) { return $i['price'] * $i['qty']; }, $items));
 
         $stmt = db()->prepare("INSERT INTO orders (user_id, items, total, address, phone, note) VALUES (?,?,?,?,?,?)");
         $stmt->execute([$userId, json_encode($items, JSON_UNESCAPED_UNICODE), $total, $address, $phone, $note]);
@@ -98,7 +99,7 @@ match($action) {
         $u = $user->fetch();
 
         // Build Telegram message
-        $itemList = implode("\n", array_map(fn($i) => "  • {$i['name']} × {$i['qty']} = ".number_format($i['price']*$i['qty'])." ".CURRENCY, $items));
+        $itemList = implode("\n", array_map(function($i) { return "  • {$i['name']} × {$i['qty']} = ".number_format($i['price']*$i['qty'])." ".CURRENCY; }, $items));
         $name = trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''));
         $uname = $u['username'] ? "@{$u['username']}" : "ID: $userId";
 
@@ -122,16 +123,18 @@ match($action) {
         ]);
 
         response(['order_id' => $orderId, 'total' => $total]);
-    })(),
+        break;
 
-    'my_orders' => (function() {
+    case 'my_orders':
         $userId = $_GET['user_id'] ?? 0;
         $orders = db()->prepare("SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 20");
         $orders->execute([$userId]);
         $list = $orders->fetchAll();
         foreach ($list as &$o) $o['items'] = json_decode($o['items'], true);
         response($list);
-    })(),
+        break;
 
-    default => response('Unknown action', false),
-};
+    default:
+        response('Unknown action', false);
+        break;
+}
