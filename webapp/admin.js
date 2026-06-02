@@ -54,8 +54,10 @@ function loadDashboard() {
       refreshBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> Yangilash';
     }
     if (!res.success) {
-      ['sTodayOrders','sTodayRevenue','sTotalUsers','sPending','sTotalOrders','sTotalRevenue','sBlockedUsers'].forEach(function(id){ setText(id, '!'); });
-      document.getElementById('recentOrders').innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:14px">⚠️ Server bilan ulanishda xatolik. Internet yoki server holatini tekshiring.</div>';
+      ['sTodayOrders','sTodayRevenue','sTotalUsers','sPending','sTotalOrders','sTotalRevenue','sBlockedUsers'].forEach(function(id){ setText(id, '—'); });
+      document.getElementById('recentOrders').innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:13px">⚠️ Server ulanmadi — F12 Console da xatoni tekshiring</div>';
+      // Console da batafsil
+      fetch(API + '?action=admin_stats').then(function(r){ return r.text(); }).then(function(t){ console.error('[Admin] admin_stats raw:', t); }).catch(function(e){ console.error('[Admin] fetch error:', e); });
       return;
     }
     var d = res.data;

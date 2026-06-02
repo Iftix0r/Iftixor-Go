@@ -96,3 +96,12 @@ function initDB(): void {
 }
 
 try { initDB(); } catch (Exception $e) { /* ignore on subsequent requests */ }
+
+// Ensure columns exist (safe migration)
+try {
+    $cols = db()->query("SHOW COLUMNS FROM users LIKE 'is_blocked'")->fetchAll();
+    if (empty($cols)) {
+        db()->exec("ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) DEFAULT 0");
+        db()->exec("ALTER TABLE users ADD COLUMN block_reason VARCHAR(255)");
+    }
+} catch (Exception $e) { /* ignore */ }

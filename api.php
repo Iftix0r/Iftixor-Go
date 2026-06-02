@@ -137,21 +137,30 @@ switch ($action) {
 
     case 'admin_stats':
         $today = date('Y-m-d');
-        $ts = db()->prepare("SELECT COUNT(*) cnt, COALESCE(SUM(total),0) rev FROM orders WHERE DATE(created_at)=?");
-        $ts->execute([$today]); $ts = $ts->fetch();
-        $all  = db()->query("SELECT COUNT(*) cnt, COALESCE(SUM(total),0) rev FROM orders")->fetch();
-        $u    = db()->query("SELECT COUNT(*) cnt FROM users")->fetch();
-        $blk  = db()->query("SELECT COUNT(*) cnt FROM users WHERE is_blocked=1")->fetch();
-        $pend = db()->query("SELECT COUNT(*) cnt FROM orders WHERE status='new'")->fetch();
-        resp([
-            'today_orders'   => (int)$ts['cnt'],
-            'today_revenue'  => (int)$ts['rev'],
-            'total_orders'   => (int)$all['cnt'],
-            'total_revenue'  => (int)$all['rev'],
-            'total_users'    => (int)$u['cnt'],
-            'blocked_users'  => (int)$blk['cnt'],
-            'pending_orders' => (int)$pend['cnt'],
-        ]);
+        try {
+            $ts = db()->prepare("SELECT COUNT(*) cnt, COALESCE(SUM(total),0) rev FROM orders WHERE DATE(created_at)=?");
+            $ts->execute([$today]); $ts = $ts->fetch();
+            $all  = db()->query("SELECT COUNT(*) cnt, COALESCE(SUM(total),0) rev FROM orders")->fetch();
+            $u    = db()->query("SELECT COUNT(*) cnt FROM users")->fetch();
+            $pend = db()->query("SELECT COUNT(*) cnt FROM orders WHERE status='new'")->fetch();
+            // is_blocked ustuni bo'lmasa 0 qaytarsin
+            try {
+                $blk = db()->query("SELECT COUNT(*) cnt FROM users WHERE is_blocked=1")->fetch();
+            } catch (Exception $e) {
+                $blk = ['cnt' => 0];
+            }
+            resp([
+                'today_orders'   => (int)$ts['cnt'],
+                'today_revenue'  => (int)$ts['rev'],
+                'total_orders'   => (int)$all['cnt'],
+                'total_revenue'  => (int)$all['rev'],
+                'total_users'    => (int)$u['cnt'],
+                'blocked_users'  => (int)$blk['cnt'],
+                'pending_orders' => (int)$pend['cnt'],
+            ]);
+        } catch (Exception $e) {
+            resp(['error' => $e->getMessage()], false);
+        }
         break;
 
     case 'admin_orders':
