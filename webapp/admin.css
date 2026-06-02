@@ -189,6 +189,7 @@ body {
 .order-uname { font-size: 12px; color: var(--text-dim); font-weight: 400; }
 .order-items-text { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .order-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-dim); align-items: center; }
+.order-note { font-size: 12px; color: var(--gold); margin-bottom: 4px; }
 .order-ctrl { flex-shrink: 0; }
 .status-select {
   background: var(--bg-input); border: 1px solid var(--border);
@@ -454,3 +455,11 @@ body {
   .order-ctrl { width: 100%; }
   .status-select { width: 100%; }
 }
+
+/* ── ORDER DETAIL ── */
+.order-detail-item {
+  display: flex; justify-content: space-between;
+  padding: 7px 0; border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.order-detail-item:last-child { border-bottom: none; }

@@ -56,6 +56,9 @@ function loadDashboard() {
     setText('sTotalRevenue', fmt(d.total_revenue));
     var badge = document.getElementById('pendingBadge');
     if (badge) { badge.textContent = d.pending_orders; badge.style.display = d.pending_orders > 0 ? 'flex' : 'none'; }
+    // Bloklangan foydalanuvchilar
+    var blkEl = document.getElementById('sBlockedUsers');
+    if (blkEl) blkEl.textContent = d.blocked_users || 0;
   });
   get('admin_orders&status=new&limit=10').then(function(res) {
     var el = document.getElementById('recentOrders');
@@ -63,6 +66,9 @@ function loadDashboard() {
       el.innerHTML = emptyState('Yangi buyurtmalar yo\'q', iconCheck());
       return;
     }
+    res.data.forEach(function(o) {
+      if (!_allOrders.find(function(x){ return x.id===o.id; })) _allOrders.push(o);
+    });
     el.innerHTML = res.data.map(renderOrderRow).join('');
   });
 }
@@ -78,6 +84,7 @@ function loadOrders() {
       el.innerHTML = emptyState('Buyurtmalar topilmadi', iconBox());
       return;
     }
+    _allOrders = res.data;
     el.innerHTML = '<div class="orders-list">' + res.data.map(renderOrderRow).join('') + '</div>';
   });
 }
@@ -93,7 +100,7 @@ function renderOrderRow(o) {
 
   var statusMap = { new:'Yangi', confirmed:'Qabul', cooking:'Tayyorlanmoqda', delivered:'Yetkazildi', cancelled:'Bekor' };
 
-  return '<div class="order-row">' +
+  return '<div class="order-row" onclick="showOrderDetail(' + o.id + ')" style="cursor:pointer">' +
     photo +
     '<div class="order-details">' +
       '<div class="order-top">' +
@@ -101,15 +108,16 @@ function renderOrderRow(o) {
         '<span class="badge badge-' + o.status + '">' + (statusMap[o.status] || o.status) + '</span>' +
         '<span class="order-amount">' + fmt(o.total) + '</span>' +
       '</div>' +
-      '<div class="order-client">' + name + (uname ? ' <span class="order-uname">' + uname + '</span>' : '') + '</div>' +
-      '<div class="order-items-text">' + (items || '—') + '</div>' +
+      '<div class="order-client">' + esc(name) + (uname ? ' <span class="order-uname">' + esc(uname) + '</span>' : '') + '</div>' +
+      '<div class="order-items-text">' + esc(items || '—') + '</div>' +
+      (o.note ? '<div class="order-note">📝 ' + esc(o.note) + '</div>' : '') +
       '<div class="order-meta">' +
-        '<span>' + iconPhone() + (o.phone || '—') + '</span>' +
-        '<span>' + iconPin() + (o.address || '—') + '</span>' +
+        '<span>' + iconPhone() + esc(o.phone || '—') + '</span>' +
+        '<span>' + iconPin() + esc(o.address || '—') + '</span>' +
         '<span>' + iconClock() + date + '</span>' +
       '</div>' +
     '</div>' +
-    '<div class="order-ctrl">' +
+    '<div class="order-ctrl" onclick="event.stopPropagation()">' +
       '<select onchange="updateOrderStatus(' + o.id + ', this.value)" class="status-select">' +
         '<option value="">Holat</option>' +
         '<option value="confirmed">✓ Qabul</option>' +
@@ -120,6 +128,65 @@ function renderOrderRow(o) {
     '</div>' +
   '</div>';
 }
+
+// ── ORDER DETAIL ──
+var _allOrders = [];
+function showOrderDetail(orderId) {
+  // orders dan topamiz (dashboard yoki orders listdan)
+  var o = _allOrders.find(function(x) { return x.id == orderId; });
+  if (!o) return;
+  var name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'Noma\'lum';
+  var statusMap = { new:'Yangi', confirmed:'Qabul qilindi', cooking:'Tayyorlanmoqda', delivered:'Yetkazildi', cancelled:'Bekor qilindi' };
+  var itemsHtml = (o.items || []).map(function(i) {
+    return '<div class="order-detail-item">' +
+      '<span>' + esc(i.name) + ' <span style="color:var(--text-dim)">×' + i.qty + '</span></span>' +
+      '<span style="font-weight:600">' + fmt(i.price * i.qty) + '</span>' +
+    '</div>';
+  }).join('');
+
+  var mapsLink = o.address ? 'https://maps.google.com/?q=' + encodeURIComponent(o.address) : '';
+
+  document.getElementById('orderDetailBody').innerHTML =
+    '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+      '<div>' +
+        '<div style="font-size:18px;font-weight:700">#' + o.id + ' Buyurtma</div>' +
+        '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + (o.created_at ? new Date(o.created_at.replace(' ','T')).toLocaleString('ru-RU') : '') + '</div>' +
+      '</div>' +
+      '<span class="badge badge-' + o.status + '">' + (statusMap[o.status] || o.status) + '</span>' +
+    '</div>' +
+    '<div style="padding:16px 20px">' +
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Mijoz</div>' +
+      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">' +
+        '<img src="' + avatarUrl(o.first_name) + '" style="width:40px;height:40px;border-radius:50%">' +
+        '<div>' +
+          '<div style="font-weight:600">' + esc(name) + '</div>' +
+          '<div style="font-size:12px;color:var(--text-dim)">' + (o.username ? '@'+esc(o.username) : 'ID: '+o.user_id) + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:grid;gap:8px;margin-bottom:16px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-dim)">Telefon</span><span>' + esc(o.phone || '—') + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-dim)">Manzil</span><span style="text-align:right;max-width:60%">' + esc(o.address || '—') + (mapsLink ? ' <a href="'+mapsLink+'" target="_blank" style="color:var(--accent);font-size:11px">🗺</a>' : '') + '</span></div>' +
+        (o.note ? '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-dim)">Izoh</span><span style="text-align:right;max-width:60%">' + esc(o.note) + '</span></div>' : '') +
+      '</div>' +
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Mahsulotlar</div>' +
+      '<div style="display:grid;gap:6px;margin-bottom:14px">' + itemsHtml + '</div>' +
+      '<div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;font-size:16px;font-weight:700">' +
+        '<span>Jami</span><span style="color:var(--accent)">' + fmt(o.total) + '</span>' +
+      '</div>' +
+    '</div>' +
+    '<div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">' +
+      '<select onchange="updateOrderStatus(' + o.id + ', this.value);closeOrderDetail()" class="status-select" style="flex:1">' +
+        '<option value="">Holatni o\'zgartirish...</option>' +
+        '<option value="confirmed">✓ Qabul qilish</option>' +
+        '<option value="cooking">⏳ Tayyorlanmoqda</option>' +
+        '<option value="delivered">✓ Yetkazildi</option>' +
+        '<option value="cancelled">✕ Bekor qilish</option>' +
+      '</select>' +
+    '</div>';
+  document.getElementById('orderDetailModal').classList.remove('hidden');
+}
+
+function closeOrderDetail() { document.getElementById('orderDetailModal').classList.add('hidden'); }
 
 function updateOrderStatus(id, status) {
   if (!status) return;
@@ -211,8 +278,37 @@ function showUserDetail(userId) {
       '<a href="tel:' + (u.phone||'') + '" class="btn-sm" style="' + (!u.phone?'opacity:.4;pointer-events:none':'') + '">📞</a>' +
       '<button class="btn-sm" onclick="promptSendMessage(' + u.id + ')">✉️ Xabar</button>' +
       blockBtn +
+    '</div>' +
+    '<div style="padding:0 20px 16px">' +
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;padding-top:14px;border-top:1px solid var(--border)">Buyurtmalar tarixi</div>' +
+      '<div id="userOrderHistory"><div style="text-align:center;padding:12px;color:var(--text-dim);font-size:13px">Yuklanmoqda...</div></div>' +
     '</div>';
   document.getElementById('userModal').classList.remove('hidden');
+  // Buyurtmalar tarixini yuklash
+  get('admin_user_orders&user_id=' + u.id).then(function(res) {
+    var el = document.getElementById('userOrderHistory');
+    if (!el) return;
+    if (!res.success || !res.data || !res.data.length) {
+      el.innerHTML = '<p style="font-size:13px;color:var(--text-dim);text-align:center;padding:8px 0">Buyurtmalar yo\'q</p>';
+      return;
+    }
+    var statusMap = { new:'Yangi', confirmed:'Qabul', cooking:'Tayyorlanmoqda', delivered:'Yetkazildi', cancelled:'Bekor' };
+    el.innerHTML = res.data.map(function(o) {
+      var items = (o.items||[]).map(function(i){ return esc(i.name)+'×'+i.qty; }).join(', ');
+      var date = o.created_at ? new Date(o.created_at.replace(' ','T')).toLocaleDateString('ru-RU') : '';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+        '<div>' +
+          '<span style="font-weight:600;color:var(--accent)">#'+o.id+'</span> ' +
+          '<span class="badge badge-'+o.status+'" style="font-size:10px">'+(statusMap[o.status]||o.status)+'</span>' +
+          '<div style="color:var(--text-dim);font-size:11px;margin-top:2px">'+items+'</div>' +
+        '</div>' +
+        '<div style="text-align:right">' +
+          '<div style="font-weight:700">'+fmt(o.total)+'</div>' +
+          '<div style="font-size:11px;color:var(--text-dim)">'+date+'</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  });
 }
 
 function uRow(label, val) {
@@ -364,11 +460,13 @@ function deleteProduct(id) {
 // ── BROADCAST ──
 function sendBroadcast() {
   var msg = (document.getElementById('broadcastMsg').value || '').trim();
+  var target = document.getElementById('broadcastTarget') ? document.getElementById('broadcastTarget').value : 'all';
   if (!msg) return adminToast('Xabar kiriting!');
-  if (!confirm('Barcha foydalanuvchilarga yuborasizmi?')) return;
+  var targetLabel = target === 'active' ? 'faol foydalanuvchilarga' : 'barcha foydalanuvchilarga';
+  if (!confirm(targetLabel + ' yuborasizmi?')) return;
   var btn = document.getElementById('broadcastBtn');
   btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
-  post('admin_broadcast', { message: msg }).then(function(res) {
+  post('admin_broadcast', { message: msg, target: target }).then(function(res) {
     btn.disabled = false;
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Barchaga yuborish';
     var r = document.getElementById('broadcastResult');
