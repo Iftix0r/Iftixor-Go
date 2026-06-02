@@ -99,6 +99,10 @@
     <div id="orderHistory"></div>
   </div>
 
+  <div id="page-success" class="page">
+    <div id="successContent" class="success-wrap"></div>
+  </div>
+
   <div id="page-checkout" class="page">
     <div class="page-title">Buyurtma berish</div>
     <div id="orderSummaryItems"></div>
@@ -147,6 +151,7 @@
 <div id="productModal" class="modal-overlay hidden" onclick="closeModal(event)">
   <div class="modal-card">
     <div class="modal-drag"></div>
+    <button id="modalCloseBtn" class="modal-close-btn" onclick="closeModal(event)">✕</button>
     <img id="modalImg" src="" class="modal-img" alt="">
     <div class="modal-body">
       <div class="modal-name" id="modalName"></div>
@@ -163,7 +168,7 @@
           </button>
         </div>
       </div>
-      <button class="btn-primary" onclick="addFromModal()">Savatga qo'shish</button>
+      <button class="btn-primary" id="modalAddBtn" onclick="addFromModal()">Savatga qo'shish</button>
     </div>
   </div>
 </div>

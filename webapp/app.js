@@ -341,3 +341,211 @@ function renderCart() {
 }
 
 function cartTotal() { return cart.reduce((s, i) => s + i.price * i.qty, 0); }
+
+// ── CHECKOUT ──
+function goCheckout() {
+  if (!cart.length) return toast('Savat bo\'sh!');
+  if (!(tgUser && tgUser.id)) return toast('Iltimos, Telegram orqali oching!');
+
+  // Avvalgi ma'lumotlarni to'ldirish
+  const ph = $('profilePhone'), ad = $('profileAddress');
+  $('checkoutPhone').value = ph ? ph.value : '';
+  $('checkoutAddress').value = ad ? ad.value : '';
+  $('checkoutNote').value = '';
+
+  const sub = cartTotal(), delivery = 5000;
+  $('orderSummaryItems').innerHTML = `
+    <div class="order-summary-card">
+      ${cart.map(i => `<div class="os-item"><span>${esc(i.name)} × ${i.qty}</span><span>${fmt(i.price * i.qty)}</span></div>`).join('')}
+    </div>`;
+  $('checkoutTotalBar').innerHTML = `
+    <div class="summary-row"><span>Ovqatlar</span><span>${fmt(sub)}</span></div>
+    <div class="summary-row"><span>Yetkazib berish</span><span>${fmt(delivery)}</span></div>
+    <div class="summary-row total"><span>Jami</span><span>${fmt(sub + delivery)}</span></div>`;
+
+  showPage('checkout');
+  if (tg && tg.BackButton) tg.BackButton.show();
+}
+
+// ── ORDER ──
+async function submitOrder() {
+  const phone = $('checkoutPhone').value.trim();
+  const address = $('checkoutAddress').value.trim();
+  const note = $('checkoutNote').value.trim();
+  if (!phone) return toast('Telefon raqam kiriting!');
+  if (!address) return toast('Manzil kiriting!');
+
+  const btn = document.querySelector('.btn-order');
+  if (btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
+
+  const res = await post('place_order', {
+    user_id: tgUser && tgUser.id ? tgUser.id : 0,
+    items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+    phone, address, note
+  });
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Buyurtma berish'; }
+
+  if (res.success) {
+    cart = [];
+    renderCart();
+    updateCartBadge();
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    if (tg && tg.BackButton) tg.BackButton.hide();
+    showOrderSuccess(res.data.order_id, res.data.total + 5000);
+    loadOrderHistory();
+  } else {
+    const msg = typeof res.data === 'string' ? res.data : 'Xatolik yuz berdi!';
+    toast('❌ ' + msg);
+    if (btn) { btn.disabled = false; btn.textContent = 'Buyurtma berish'; }
+  }
+}
+
+function showOrderSuccess(orderId, total) {
+  showPage('success');
+  const el = $('successContent');
+  if (el) {
+    el.innerHTML = `
+      <div class="success-icon">✅</div>
+      <div class="success-title">Buyurtma qabul qilindi!</div>
+      <div class="success-id">#${orderId}</div>
+      <div class="success-total">${fmt(total)}</div>
+      <div class="success-desc">30–60 daqiqada yetkazamiz 🚀</div>
+      <button class="btn-primary" onclick="navTo('home', document.querySelectorAll('.nav-item')[0])" style="margin-top:8px">Menyuga qaytish</button>`;
+  }
+}
+
+// ── PROFILE ──
+async function loadProfile() {
+  if (!(tgUser && tgUser.id)) return;
+  const res = await get(`get_profile&user_id=${tgUser.id}`);
+  if (!res.success || !res.data) return;
+  const u = res.data;
+  const name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+  setText('profileName', name || 'Foydalanuvchi');
+  setText('profileUsername', u.username ? `@${u.username}` : '');
+  setText('pId', u.id);
+  setText('pName', name || '—');
+  setText('pUsername', u.username ? `@${u.username}` : '—');
+  if (u.phone && $('profilePhone')) $('profilePhone').value = u.phone;
+  if (u.address && $('profileAddress')) $('profileAddress').value = u.address;
+  const photo = u.photo_url || (tgUser && tgUser.photo_url) || '';
+  const pPhoto = $('profilePhoto');
+  if (pPhoto) pPhoto.src = photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name || 'U')}&background=ff6b35&color=fff&size=160&bold=true`;
+}
+
+async function saveProfile() {
+  if (!(tgUser && tgUser.id)) return toast('Telegram orqali kirish kerak!');
+  const phone = $('profilePhone').value.trim();
+  const address = $('profileAddress').value.trim();
+  const res = await post('update_profile', { user_id: tgUser.id, phone, address });
+  if (res.success) {
+    toast('✓ Saqlandi!');
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  } else {
+    toast('Xatolik!');
+  }
+}
+
+async function loadOrderHistory() {
+  if (!(tgUser && tgUser.id)) return;
+  const res = await get(`my_orders&user_id=${tgUser.id}`);
+  const el = $('orderHistory');
+  if (!el) return;
+  if (!res.success || !(res.data && res.data.length)) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--subtext);font-size:13px">Buyurtmalar yo'q</div>`;
+    setText('statOrdersCount', '0');
+    setText('statTotalSpent', "0 so'm");
+    return;
+  }
+  setText('statOrdersCount', res.data.length);
+  const spent = res.data.reduce((a, o) => a + (o.status !== 'cancelled' ? +o.total : 0), 0);
+  setText('statTotalSpent', fmt(spent));
+
+  const sMap = { new:'Yangi', confirmed:'Qabul qilindi', cooking:'Tayyorlanmoqda', delivered:'Yetkazildi', cancelled:'Bekor' };
+  const cMap = { new:'s-new', confirmed:'s-confirmed', cooking:'s-cooking', delivered:'s-delivered', cancelled:'s-cancelled' };
+  el.innerHTML = res.data.map(o => {
+    const items = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ');
+    const date = o.created_at ? new Date(o.created_at.replace(' ','T')).toLocaleDateString('uz-UZ') : '';
+    return `
+    <div class="order-hist-item">
+      <div class="order-hist-head">
+        <span class="order-hist-id">#${o.id}</span>
+        <span class="status-badge ${cMap[o.status]||'s-new'}">${sMap[o.status]||o.status}</span>
+      </div>
+      <div class="order-hist-items">${esc(items || '—')}</div>
+      <div class="order-hist-foot">
+        <span class="order-hist-date">${date}</span>
+        <span class="order-hist-total">${fmt(o.total)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── NAV ──
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = $(`page-${name}`);
+  if (el) el.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function navTo(name, el) {
+  showPage(name);
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (name === 'profile') { loadProfile(); loadOrderHistory(); }
+  if (name === 'cart') renderCart();
+  if (name !== 'checkout') { if (tg && tg.BackButton) tg.BackButton.hide(); }
+}
+
+// ── HELPERS ──
+function fmt(n) { return Number(n).toLocaleString('uz-UZ') + ' so\'m'; }
+
+function setText(id, val) {
+  const el = $(id);
+  if (el) el.textContent = val;
+}
+
+function toast(msg) {
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.add('hidden'), 2600);
+}
+
+async function post(action, data) {
+  try {
+    const r = await fetch(`${API}?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await r.json();
+  } catch { return { success: false }; }
+}
+
+async function get(action) {
+  try {
+    const r = await fetch(`${API}?action=${action}`);
+    return await r.json();
+  } catch { return { success: false }; }
+}
+
+// ── TELEGRAM BACK BUTTON ──
+if (tg && tg.BackButton) {
+  tg.BackButton.onClick(() => {
+    const active = document.querySelector('.page.active');
+    if (active && active.id === 'page-checkout') {
+      navTo('cart', document.querySelectorAll('.nav-item')[1]);
+    } else if (active && active.id === 'page-success') {
+      navTo('home', document.querySelectorAll('.nav-item')[0]);
+    } else {
+      tg.BackButton.hide();
+    }
+  });
+}
+
+init();
