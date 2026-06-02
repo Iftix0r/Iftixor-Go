@@ -1,23 +1,23 @@
 const API = 'https://iftixorgo.bigsaver.ru/api.php';
 
-// Telegram WebApp - optional
 const tg = window.Telegram ? window.Telegram.WebApp : null;
-const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
-
-// Browser fallback user (saytdan kirganda)
-const currentUser = tgUser || { id: 0, first_name: 'Mehmon', username: '', photo_url: '' };
+let tgUser = null;
 
 let menu = [], cart = [], activeCat = 0, modalProduct = null, modalQty = 1;
 const $ = id => document.getElementById(id);
 
 // ── INIT ──
-if (tg) tg.expand();
-if (tg) tg.ready();
-
 async function init() {
-  // Splash 900ms dan keyin har qanday holatda yashiriladi
-  const splashTimer = setTimeout(hideSplash, 900);
+  // tg.ready() dan keyin initDataUnsafe to'ldirilgan bo'ladi
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    // biroz kutib user ma'lumotini olamiz
+    await new Promise(r => setTimeout(r, 50));
+    tgUser = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+  }
 
+  const splashTimer = setTimeout(hideSplash, 900);
   try {
     if (tgUser && tgUser.id) await saveUser();
     else showGuestHeader();
