@@ -8,12 +8,9 @@ const $ = id => document.getElementById(id);
 
 // ── INIT ──
 async function init() {
-  // tg.ready() dan keyin initDataUnsafe to'ldirilgan bo'ladi
   if (tg) {
     tg.ready();
     tg.expand();
-    // biroz kutib user ma'lumotini olamiz
-    await new Promise(r => setTimeout(r, 50));
     tgUser = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
   }
 
