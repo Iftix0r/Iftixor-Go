@@ -159,7 +159,7 @@ switch ($action) {
     case 'admin_orders':
         $status = $_GET['status'] ?? '';
         $limit = (int)($_GET['limit'] ?? 50);
-        $sql = "SELECT o.*, u.first_name, u.last_name, u.username, u.phone as user_phone FROM orders o LEFT JOIN users u ON o.user_id=u.id";
+        $sql = "SELECT o.*, u.first_name, u.last_name, u.username, u.photo_url, u.phone as user_phone FROM orders o LEFT JOIN users u ON o.user_id=u.id";
         if ($status) {
             $sql .= " WHERE o.status=?";
             $stmt = db()->prepare($sql . " ORDER BY o.created_at DESC LIMIT $limit");
