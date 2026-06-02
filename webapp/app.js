@@ -18,11 +18,20 @@ async function init() {
   try {
     if (tgUser && tgUser.id) await saveUser();
     else showGuestHeader();
+    
     await loadMenu();
-    if (tgUser && tgUser.id) { loadProfile(); loadOrderHistory(); }
+    
+    if (tgUser && tgUser.id) { 
+      loadProfile(); 
+      loadOrderHistory(); 
+    }
     renderCart();
   } catch(e) {
     console.warn('Init error:', e);
+    toast('Xatolik yuz berdi: ' + (e.message || 'Noma\\'lum xato'));
+    if ($('headerName').textContent === 'Yuklanmoqda...') {
+      $('headerName').textContent = 'Xatolik';
+    }
   } finally {
     clearTimeout(splashTimer);
     hideSplash();
@@ -31,23 +40,31 @@ async function init() {
 
 function hideSplash() {
   const splash = $('splash');
+  if (!splash) return;
   splash.style.opacity = '0';
-  $('app').classList.remove('hidden');
+  const appEl = $('app');
+  if (appEl) appEl.classList.remove('hidden');
   setTimeout(() => splash.style.display = 'none', 380);
 }
 
 function showGuestHeader() {
-  $('headerName').textContent = 'Mehmon';
+  const el = $('headerName');
+  if (el) el.textContent = 'Mehmon';
 }
 
 // ── USER ──
 async function saveUser() {
-  const res = await post('save_user', { user: tgUser });
-  if (!res.success) return;
-
-  $('headerName').textContent = tgUser.first_name || 'Foydalanuvchi';
-  if (tgUser.photo_url) {
+  // Always update UI first to avoid getting stuck
+  const el = $('headerName');
+  if (el) el.textContent = tgUser.first_name || 'Foydalanuvchi';
+  
+  if (tgUser.photo_url && $('headerAvatar')) {
     $('headerAvatar').innerHTML = `<img src="${tgUser.photo_url}" alt="">`;
+  }
+
+  const res = await post('save_user', { user: tgUser });
+  if (!res.success) {
+    console.warn('Foydalanuvchini saqlab bo\\'lmadi');
   }
 }
 
