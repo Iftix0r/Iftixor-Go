@@ -24,8 +24,12 @@ function initDB(): void {
             phone VARCHAR(20),
             address TEXT,
             language_code VARCHAR(10),
+            is_blocked TINYINT(1) DEFAULT 0,
+            block_reason VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked TINYINT(1) DEFAULT 0;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS block_reason VARCHAR(255);
 
         CREATE TABLE IF NOT EXISTS categories (
             id INT AUTO_INCREMENT PRIMARY KEY,

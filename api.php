@@ -11,14 +11,13 @@ require_once 'db.php';
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
-function response($data, $success = true): void {
+function resp($data, $success = true): void {
     echo json_encode(['success' => $success, 'data' => $data]);
     exit;
 }
 
-function tgRequest(string $method, array $params = []): array {
-    $url = "https://api.telegram.org/bot".BOT_TOKEN."/$method";
-    $ch = curl_init($url);
+function tgReq(string $method, array $params = []): array {
+    $ch = curl_init("https://api.telegram.org/bot".BOT_TOKEN."/$method");
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($params),
@@ -32,75 +31,78 @@ function tgRequest(string $method, array $params = []): array {
 }
 
 switch ($action) {
+
+    // ── USER ──
     case 'save_user':
         $u = $input['user'] ?? [];
-        if (empty($u['id'])) response('No user data', false);
-
+        if (empty($u['id'])) resp('No user data', false);
         db()->prepare("INSERT INTO users (id, username, first_name, last_name, photo_url, language_code)
-            VALUES (:id, :username, :first_name, :last_name, :photo_url, :lang)
+            VALUES (:id,:un,:fn,:ln,:ph,:lc)
             ON DUPLICATE KEY UPDATE username=VALUES(username), first_name=VALUES(first_name),
             last_name=VALUES(last_name), photo_url=VALUES(photo_url)"
         )->execute([
-            ':id' => $u['id'],
-            ':username' => $u['username'] ?? '',
-            ':first_name' => $u['first_name'] ?? '',
-            ':last_name' => $u['last_name'] ?? '',
-            ':photo_url' => $u['photo_url'] ?? '',
-            ':lang' => $u['language_code'] ?? 'uz',
+            ':id' => $u['id'], ':un' => $u['username'] ?? '',
+            ':fn' => $u['first_name'] ?? '', ':ln' => $u['last_name'] ?? '',
+            ':ph' => $u['photo_url'] ?? '', ':lc' => $u['language_code'] ?? 'uz',
         ]);
-        response('saved');
+        resp('saved');
         break;
 
     case 'update_profile':
         $id = $input['user_id'] ?? 0;
-        if (!$id) response('No ID', false);
-        db()->prepare("UPDATE users SET phone=:phone, address=:address WHERE id=:id")
-            ->execute([':phone' => $input['phone'] ?? '', ':address' => $input['address'] ?? '', ':id' => $id]);
-        response('updated');
+        if (!$id) resp('No ID', false);
+        db()->prepare("UPDATE users SET phone=?, address=? WHERE id=?")
+            ->execute([$input['phone'] ?? '', $input['address'] ?? '', $id]);
+        resp('updated');
         break;
 
     case 'get_profile':
         $id = $_GET['user_id'] ?? 0;
-        $user = db()->prepare("SELECT * FROM users WHERE id=?");
-        $user->execute([$id]);
-        $data = $user->fetch();
-        response($data ?: []);
+        $s = db()->prepare("SELECT * FROM users WHERE id=?");
+        $s->execute([$id]);
+        resp($s->fetch() ?: []);
         break;
 
+    // ── MENU ──
     case 'get_menu':
-        $cats = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
+        $cats  = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
         $prods = db()->query("SELECT * FROM products WHERE available=1 ORDER BY category_id")->fetchAll();
         $menu = [];
         foreach ($cats as $c) {
-            $c['products'] = array_values(array_filter($prods, function($p) use ($c) { return $p['category_id'] == $c['id']; }));
+            $c['products'] = array_values(array_filter($prods, fn($p) => $p['category_id'] == $c['id']));
             $menu[] = $c;
         }
-        response($menu);
+        resp($menu);
         break;
 
+    // ── ORDER ──
     case 'place_order':
-        $userId = $input['user_id'] ?? 0;
-        $items = $input['items'] ?? [];
+        $userId  = $input['user_id'] ?? 0;
+        $items   = $input['items']   ?? [];
         $address = $input['address'] ?? '';
-        $phone = $input['phone'] ?? '';
-        $note = $input['note'] ?? '';
+        $phone   = $input['phone']   ?? '';
+        $note    = $input['note']    ?? '';
+        if (!$userId || empty($items)) resp('Invalid data', false);
 
-        if (!$userId || empty($items)) response('Invalid data', false);
+        // Block tekshiruvi
+        $chk = db()->prepare("SELECT is_blocked, block_reason FROM users WHERE id=?");
+        $chk->execute([$userId]);
+        $cu = $chk->fetch();
+        if ($cu && $cu['is_blocked']) {
+            resp('Siz bloklangansiz' . ($cu['block_reason'] ? ': ' . $cu['block_reason'] : ''), false);
+        }
 
-        $total = array_sum(array_map(function($i) { return $i['price'] * $i['qty']; }, $items));
-
+        $total = array_sum(array_map(fn($i) => $i['price'] * $i['qty'], $items));
         $stmt = db()->prepare("INSERT INTO orders (user_id, items, total, address, phone, note) VALUES (?,?,?,?,?,?)");
         $stmt->execute([$userId, json_encode($items, JSON_UNESCAPED_UNICODE), $total, $address, $phone, $note]);
         $orderId = db()->lastInsertId();
 
-        // Get user info
-        $user = db()->prepare("SELECT * FROM users WHERE id=?");
-        $user->execute([$userId]);
-        $u = $user->fetch();
+        $u = db()->prepare("SELECT * FROM users WHERE id=?");
+        $u->execute([$userId]);
+        $u = $u->fetch();
 
-        // Build Telegram message
-        $itemList = implode("\n", array_map(function($i) { return "  • {$i['name']} × {$i['qty']} = ".number_format($i['price']*$i['qty'])." ".CURRENCY; }, $items));
-        $name = trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''));
+        $itemList = implode("\n", array_map(fn($i) => "  • {$i['name']} × {$i['qty']} = ".number_format($i['price']*$i['qty'])." ".CURRENCY, $items));
+        $name  = trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''));
         $uname = $u['username'] ? "@{$u['username']}" : "ID: $userId";
 
         $msg = "🆕 *Yangi Buyurtma #$orderId*\n\n"
@@ -112,155 +114,192 @@ switch ($action) {
              . "💰 *Jami: ".number_format($total)." ".CURRENCY."*\n"
              . "🕐 ".date('d.m.Y H:i');
 
-        tgRequest('sendMessage', [
-            'chat_id' => GROUP_CHAT_ID,
-            'text' => $msg,
-            'parse_mode' => 'Markdown',
+        tgReq('sendMessage', [
+            'chat_id' => GROUP_CHAT_ID, 'text' => $msg, 'parse_mode' => 'Markdown',
             'reply_markup' => ['inline_keyboard' => [[
-                ['text' => '✅ Qabul qilish', 'callback_data' => "confirm_$orderId"],
-                ['text' => '❌ Bekor qilish', 'callback_data' => "cancel_$orderId"],
+                ['text' => '✅ Qabul', 'callback_data' => "confirm_$orderId"],
+                ['text' => '❌ Bekor', 'callback_data' => "cancel_$orderId"],
             ]]]
         ]);
-
-        response(['order_id' => $orderId, 'total' => $total]);
+        resp(['order_id' => $orderId, 'total' => $total]);
         break;
 
     case 'my_orders':
         $userId = $_GET['user_id'] ?? 0;
-        $orders = db()->prepare("SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 20");
-        $orders->execute([$userId]);
-        $list = $orders->fetchAll();
+        $s = db()->prepare("SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 20");
+        $s->execute([$userId]);
+        $list = $s->fetchAll();
         foreach ($list as &$o) $o['items'] = json_decode($o['items'], true);
-        response($list);
+        resp($list);
         break;
 
-    // ═══════════ ADMIN API ═══════════
+    // ══════════ ADMIN ══════════
 
     case 'admin_stats':
         $today = date('Y-m-d');
-        $todayOrders = db()->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM orders WHERE DATE(created_at)=?");
-        $todayOrders->execute([$today]);
-        $ts = $todayOrders->fetch();
-
-        $allOrders = db()->query("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM orders")->fetch();
-        $users = db()->query("SELECT COUNT(*) as cnt FROM users")->fetch();
-        $pending = db()->query("SELECT COUNT(*) as cnt FROM orders WHERE status='new'")->fetch();
-
-        response([
-            'today_orders' => (int)$ts['cnt'],
-            'today_revenue' => (int)$ts['rev'],
-            'total_orders' => (int)$allOrders['cnt'],
-            'total_revenue' => (int)$allOrders['rev'],
-            'total_users' => (int)$users['cnt'],
-            'pending_orders' => (int)$pending['cnt'],
+        $ts = db()->prepare("SELECT COUNT(*) cnt, COALESCE(SUM(total),0) rev FROM orders WHERE DATE(created_at)=?");
+        $ts->execute([$today]); $ts = $ts->fetch();
+        $all  = db()->query("SELECT COUNT(*) cnt, COALESCE(SUM(total),0) rev FROM orders")->fetch();
+        $u    = db()->query("SELECT COUNT(*) cnt FROM users")->fetch();
+        $blk  = db()->query("SELECT COUNT(*) cnt FROM users WHERE is_blocked=1")->fetch();
+        $pend = db()->query("SELECT COUNT(*) cnt FROM orders WHERE status='new'")->fetch();
+        resp([
+            'today_orders'   => (int)$ts['cnt'],
+            'today_revenue'  => (int)$ts['rev'],
+            'total_orders'   => (int)$all['cnt'],
+            'total_revenue'  => (int)$all['rev'],
+            'total_users'    => (int)$u['cnt'],
+            'blocked_users'  => (int)$blk['cnt'],
+            'pending_orders' => (int)$pend['cnt'],
         ]);
         break;
 
     case 'admin_orders':
         $status = $_GET['status'] ?? '';
-        $limit = (int)($_GET['limit'] ?? 50);
-        $sql = "SELECT o.*, u.first_name, u.last_name, u.username, u.photo_url, u.phone as user_phone FROM orders o LEFT JOIN users u ON o.user_id=u.id";
+        $limit  = min((int)($_GET['limit'] ?? 50), 200);
+        $sql = "SELECT o.*, u.first_name, u.last_name, u.username, u.photo_url, u.phone as user_phone
+                FROM orders o LEFT JOIN users u ON o.user_id=u.id";
         if ($status) {
-            $sql .= " WHERE o.status=?";
-            $stmt = db()->prepare($sql . " ORDER BY o.created_at DESC LIMIT $limit");
-            $stmt->execute([$status]);
+            $s = db()->prepare($sql." WHERE o.status=? ORDER BY o.created_at DESC LIMIT $limit");
+            $s->execute([$status]);
         } else {
-            $stmt = db()->query($sql . " ORDER BY o.created_at DESC LIMIT $limit");
+            $s = db()->query($sql." ORDER BY o.created_at DESC LIMIT $limit");
         }
-        $list = $stmt->fetchAll();
+        $list = $s->fetchAll();
         foreach ($list as &$o) $o['items'] = json_decode($o['items'], true);
-        response($list);
+        resp($list);
         break;
 
     case 'admin_users':
         $search = $_GET['search'] ?? '';
+        $filter = $_GET['filter'] ?? ''; // blocked | active
+        $sql = "SELECT *, (SELECT COUNT(*) FROM orders WHERE user_id=users.id) as order_count,
+                (SELECT COALESCE(SUM(total),0) FROM orders WHERE user_id=users.id) as total_spent
+                FROM users";
+        $where = []; $params = [];
         if ($search) {
-            $stmt = db()->prepare("SELECT * FROM users WHERE first_name LIKE ? OR username LIKE ? OR phone LIKE ? ORDER BY id DESC LIMIT 100");
-            $q = "%$search%";
-            $stmt->execute([$q, $q, $q]);
-        } else {
-            $stmt = db()->query("SELECT * FROM users ORDER BY id DESC LIMIT 100");
+            $where[] = "(first_name LIKE ? OR last_name LIKE ? OR username LIKE ? OR phone LIKE ?)";
+            $q = "%$search%"; $params = [$q,$q,$q,$q];
         }
-        response($stmt->fetchAll());
+        if ($filter === 'blocked') $where[] = 'is_blocked=1';
+        if ($filter === 'active')  $where[] = 'is_blocked=0';
+        if ($where) $sql .= ' WHERE '.implode(' AND ', $where);
+        $sql .= ' ORDER BY id DESC LIMIT 200';
+        $s = db()->prepare($sql); $s->execute($params);
+        resp($s->fetchAll());
+        break;
+
+    case 'admin_user_orders':
+        $uid = $_GET['user_id'] ?? 0;
+        $s = db()->prepare("SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 20");
+        $s->execute([$uid]);
+        $list = $s->fetchAll();
+        foreach ($list as &$o) $o['items'] = json_decode($o['items'], true);
+        resp($list);
+        break;
+
+    case 'admin_block_user':
+        $uid    = $input['user_id'] ?? 0;
+        $reason = $input['reason'] ?? '';
+        if (!$uid) resp('No ID', false);
+        db()->prepare("UPDATE users SET is_blocked=1, block_reason=? WHERE id=?")->execute([$reason, $uid]);
+        $msg = "⛔ *Hisobingiz bloklandi.*".($reason ? "\nSabab: $reason" : '')."\n\nSavollar: @Iftix0r";
+        tgReq('sendMessage', ['chat_id' => $uid, 'text' => $msg, 'parse_mode' => 'Markdown']);
+        resp('blocked');
+        break;
+
+    case 'admin_unblock_user':
+        $uid = $input['user_id'] ?? 0;
+        if (!$uid) resp('No ID', false);
+        db()->prepare("UPDATE users SET is_blocked=0, block_reason=NULL WHERE id=?")->execute([$uid]);
+        tgReq('sendMessage', ['chat_id' => $uid, 'text' => "✅ *Hisobingiz blokdan chiqarildi!*\nEndi buyurtma bera olasiz.", 'parse_mode' => 'Markdown']);
+        resp('unblocked');
+        break;
+
+    case 'admin_delete_user':
+        $uid = $input['user_id'] ?? 0;
+        if (!$uid) resp('No ID', false);
+        db()->prepare("DELETE FROM orders WHERE user_id=?")->execute([$uid]);
+        db()->prepare("DELETE FROM users WHERE id=?")->execute([$uid]);
+        resp('deleted');
+        break;
+
+    case 'admin_send_message':
+        $uid = $input['user_id'] ?? 0;
+        $msg = $input['message'] ?? '';
+        if (!$uid || !$msg) resp('Missing data', false);
+        $res = tgReq('sendMessage', ['chat_id' => $uid, 'text' => $msg, 'parse_mode' => 'Markdown']);
+        resp($res['ok'] ?? false);
         break;
 
     case 'admin_update_order':
-        $orderId = $input['order_id'] ?? 0;
-        $newStatus = $input['status'] ?? '';
-        if (!$orderId || !$newStatus) response('Missing data', false);
+        $orderId   = $input['order_id'] ?? 0;
+        $newStatus = $input['status']   ?? '';
+        if (!$orderId || !$newStatus) resp('Missing data', false);
         db()->prepare("UPDATE orders SET status=? WHERE id=?")->execute([$newStatus, $orderId]);
-
-        // Notify user
-        $order = db()->prepare("SELECT user_id FROM orders WHERE id=?");
-        $order->execute([$orderId]);
-        $o = $order->fetch();
+        $o = db()->prepare("SELECT user_id FROM orders WHERE id=?");
+        $o->execute([$orderId]); $o = $o->fetch();
         if ($o) {
             $msgs = [
                 'confirmed' => "✅ *#{$orderId} buyurtmangiz qabul qilindi!*\n🍽️ Tayyorlanmoqda...",
-                'cooking' => "👨‍🍳 *#{$orderId} buyurtmangiz tayyorlanmoqda!*",
+                'cooking'   => "👨‍🍳 *#{$orderId} buyurtmangiz tayyorlanmoqda!*",
                 'delivered' => "🚚 *#{$orderId} buyurtmangiz yetkazildi!*\nYoqimli ishtaha! 😋",
                 'cancelled' => "❌ *#{$orderId} buyurtmangiz bekor qilindi.*",
             ];
-            if (isset($msgs[$newStatus])) {
-                tgRequest('sendMessage', ['chat_id' => $o['user_id'], 'text' => $msgs[$newStatus], 'parse_mode' => 'Markdown']);
-            }
+            if (isset($msgs[$newStatus]))
+                tgReq('sendMessage', ['chat_id' => $o['user_id'], 'text' => $msgs[$newStatus], 'parse_mode' => 'Markdown']);
         }
-        response('updated');
+        resp('updated');
         break;
 
     case 'admin_broadcast':
         $message = $input['message'] ?? '';
-        if (!$message) response('No message', false);
-        $users = db()->query("SELECT id FROM users")->fetchAll();
+        $target  = $input['target']  ?? 'all'; // all | active
+        if (!$message) resp('No message', false);
+        $sql = $target === 'active'
+            ? "SELECT id FROM users WHERE is_blocked=0"
+            : "SELECT id FROM users";
+        $users = db()->query($sql)->fetchAll();
         $sent = 0;
         foreach ($users as $u) {
-            $result = tgRequest('sendMessage', ['chat_id' => $u['id'], 'text' => $message, 'parse_mode' => 'Markdown']);
-            if (!empty($result['ok'])) $sent++;
+            $r = tgReq('sendMessage', ['chat_id' => $u['id'], 'text' => $message, 'parse_mode' => 'Markdown']);
+            if (!empty($r['ok'])) $sent++;
+            usleep(50000); // 50ms delay - Telegram rate limit
         }
-        response(['sent' => $sent, 'total' => count($users)]);
+        resp(['sent' => $sent, 'total' => count($users)]);
         break;
 
     case 'admin_add_product':
-        $catId = $input['category_id'] ?? 0;
-        $name = $input['name'] ?? '';
-        $desc = $input['description'] ?? '';
-        $price = $input['price'] ?? 0;
-        $image = $input['image'] ?? '';
-        if (!$catId || !$name || !$price) response('Missing data', false);
-        $stmt = db()->prepare("INSERT INTO products (category_id, name, description, price, image, available) VALUES (?,?,?,?,?,1)");
-        $stmt->execute([$catId, $name, $desc, $price, $image]);
-        response(['id' => db()->lastInsertId()]);
+        $data = [$input['category_id']??0, $input['name']??'', $input['description']??'', $input['price']??0, $input['image']??''];
+        if (!$data[0] || !$data[1] || !$data[3]) resp('Missing data', false);
+        $s = db()->prepare("INSERT INTO products (category_id, name, description, price, image, available) VALUES (?,?,?,?,?,1)");
+        $s->execute($data);
+        resp(['id' => db()->lastInsertId()]);
         break;
 
     case 'admin_edit_product':
         $id = $input['id'] ?? 0;
-        $name = $input['name'] ?? '';
-        $desc = $input['description'] ?? '';
-        $price = $input['price'] ?? 0;
-        $image = $input['image'] ?? '';
-        $available = isset($input['available']) ? (int)$input['available'] : 1;
-        if (!$id) response('Missing id', false);
-        db()->prepare("UPDATE products SET name=?, description=?, price=?, image=?, available=? WHERE id=?")
-            ->execute([$name, $desc, $price, $image, $available, $id]);
-        response('updated');
+        if (!$id) resp('Missing id', false);
+        db()->prepare("UPDATE products SET name=?, description=?, price=?, image=?, available=?, category_id=? WHERE id=?")
+            ->execute([$input['name']??'', $input['description']??'', $input['price']??0, $input['image']??'', $input['available']??1, $input['category_id']??0, $id]);
+        resp('updated');
         break;
 
     case 'admin_delete_product':
         $id = $input['id'] ?? 0;
-        if (!$id) response('Missing id', false);
+        if (!$id) resp('Missing id', false);
         db()->prepare("DELETE FROM products WHERE id=?")->execute([$id]);
-        response('deleted');
+        resp('deleted');
         break;
 
     case 'admin_categories':
-        response(db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll());
+        resp(db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll());
         break;
 
     case 'admin_products':
-        response(db()->query("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id=c.id ORDER BY p.category_id, p.id")->fetchAll());
+        resp(db()->query("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id=c.id ORDER BY p.category_id, p.id")->fetchAll());
         break;
 
     default:
-        response('Unknown action', false);
-        break;
+        resp('Unknown action', false);
 }
