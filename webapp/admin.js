@@ -364,6 +364,77 @@ function promptSendMessage(userId) {
   });
 }
 
+// ── IMAGE UPLOAD ──
+function handleImageUpload(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var status = document.getElementById('prodImageUploadStatus');
+  var preview = document.getElementById('prodImagePreview');
+
+  // Local preview
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    preview.innerHTML = '<img src="' + e.target.result + '">';
+    preview.classList.add('has-img');
+  };
+  reader.readAsDataURL(file);
+
+  // Upload to server
+  status.textContent = '⏳ Yuklanmoqda...';
+  status.className = 'uploading';
+
+  var formData = new FormData();
+  formData.append('image', file);
+
+  fetch('https://iftixorgo.bigsaver.ru/upload.php', {
+    method: 'POST',
+    body: formData
+  }).then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.success) {
+        document.getElementById('prodImage').value = res.data.url;
+        status.textContent = '✓ Yuklandi';
+        status.className = 'success';
+      } else {
+        status.textContent = '✗ Xatolik: ' + (res.data || 'Yuklashda muammo');
+        status.className = 'error';
+      }
+    })
+    .catch(function() {
+      status.textContent = '✗ Server bilan ulanishda xatolik';
+      status.className = 'error';
+    });
+}
+
+function handleImageUrl(input) {
+  var url = input.value.trim();
+  var preview = document.getElementById('prodImagePreview');
+  if (!url) {
+    preview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rasm tanlang</span>';
+    preview.classList.remove('has-img');
+    return;
+  }
+  var img = new Image();
+  img.onload = function() {
+    preview.innerHTML = '<img src="' + url + '">';
+    preview.classList.add('has-img');
+  };
+  img.onerror = function() { preview.classList.remove('has-img'); };
+  img.src = url;
+}
+
+function resetImageUpload() {
+  var preview = document.getElementById('prodImagePreview');
+  if (preview) {
+    preview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rasm tanlang</span>';
+    preview.classList.remove('has-img');
+  }
+  var status = document.getElementById('prodImageUploadStatus');
+  if (status) { status.textContent = ''; status.className = ''; }
+  var fileInput = document.getElementById('prodImageFile');
+  if (fileInput) fileInput.value = '';
+}
+
 // ── PRODUCTS ──
 function loadProducts() {
   get('admin_categories').then(function(res) { if (res.success && res.data) categories = res.data; });
@@ -408,6 +479,7 @@ function showAddProduct() {
   document.getElementById('editProductId').value = '';
   ['prodName','prodDesc','prodPrice','prodImage'].forEach(function(id) { document.getElementById(id).value = ''; });
   document.getElementById('prodAvailGroup').style.display = 'none';
+  resetImageUpload();
   fillCatSelect();
   document.getElementById('productModal').classList.remove('hidden');
 }
@@ -423,6 +495,12 @@ function editProduct(id) {
   document.getElementById('prodImage').value = p.image || '';
   document.getElementById('prodAvailable').checked = parseInt(p.available) === 1;
   document.getElementById('prodAvailGroup').style.display = 'block';
+  // Rasm preview
+  resetImageUpload();
+  if (p.image) {
+    var prev = document.getElementById('prodImagePreview');
+    if (prev) { prev.innerHTML = '<img src="' + p.image + '">'; prev.classList.add('has-img'); }
+  }
   fillCatSelect(p.category_id);
   document.getElementById('productModal').classList.remove('hidden');
 }
