@@ -1,8 +1,8 @@
 const API = 'https://iftixorgo.bigsaver.ru/api.php';
 
 // Telegram WebApp - optional
-const tg = window.Telegram?.WebApp;
-const tgUser = tg?.initDataUnsafe?.user || null;
+const tg = window.Telegram ? window.Telegram.WebApp : null;
+const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
 
 // Browser fallback user (saytdan kirganda)
 const currentUser = tgUser || { id: 0, first_name: 'Mehmon', username: '', photo_url: '' };
@@ -11,18 +11,18 @@ let menu = [], cart = [], activeCat = 0, modalProduct = null, modalQty = 1;
 const $ = id => document.getElementById(id);
 
 // ── INIT ──
-tg?.expand();
-tg?.ready();
+if (tg) tg.expand();
+if (tg) tg.ready();
 
 async function init() {
   // Splash 900ms dan keyin har qanday holatda yashiriladi
   const splashTimer = setTimeout(hideSplash, 900);
 
   try {
-    if (tgUser?.id) await saveUser();
+    if (tgUser && tgUser.id) await saveUser();
     else showGuestHeader();
     await loadMenu();
-    if (tgUser?.id) { loadProfile(); loadOrderHistory(); }
+    if (tgUser && tgUser.id) { loadProfile(); loadOrderHistory(); }
     renderCart();
   } catch(e) {
     console.warn('Init error:', e);
@@ -57,7 +57,7 @@ async function saveUser() {
 // ── MENU ──
 async function loadMenu() {
   const res = await get('get_menu');
-  if (!res.success || !res.data?.length) {
+  if (!res.success || !(res.data && res.data.length)) {
     $('productGrid').innerHTML = '<div style="padding:40px;text-align:center;color:var(--subtext)">Menyu yuklanmadi</div>';
     return;
   }
@@ -105,8 +105,8 @@ function renderProducts(catId) {
   const grid = $('productGrid');
   grid.innerHTML = '';
   const all = catId === 0
-    ? menu.flatMap(c => c.products)
-    : (menu.find(c => c.id == catId)?.products || []);
+    ? menu.reduce((acc, c) => acc.concat(c.products || []), [])
+    : ((menu.find(c => c.id == catId) || {}).products || []);
 
   if (!all.length) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--subtext)">Mahsulot yo'q</div>`;
@@ -162,7 +162,7 @@ function openModal(p) {
   if (p.image) { img.src = p.image; img.style.display = 'block'; }
   else img.style.display = 'none';
   $('productModal').classList.remove('hidden');
-  tg?.HapticFeedback?.impactOccurred('light');
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 }
 
 function closeModal(e) {
@@ -178,15 +178,15 @@ function addFromModal() {
   if (!modalProduct) return;
   addToCart(modalProduct, modalQty);
   $('productModal').classList.add('hidden');
-  tg?.HapticFeedback?.notificationOccurred('success');
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
   toast(`${modalProduct.name} savatga qo'shildi`);
 }
 
 function quickAdd(id) {
-  const p = menu.flatMap(c => c.products).find(p => p.id == id);
+  const p = menu.reduce((acc, c) => acc.concat(c.products || []), []).find(p => p.id == id);
   if (!p) return;
   addToCart(p, 1);
-  tg?.HapticFeedback?.impactOccurred('medium');
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
   toast(`${p.name} qo'shildi`);
 }
 
@@ -265,10 +265,10 @@ function cartTotal() { return cart.reduce((s, i) => s + i.price * i.qty, 0); }
 
 function goCheckout() {
   if (!cart.length) return toast('Savat bo\'sh!');
-  if (!tgUser?.id) return toast('Iltimos, Telegram orqali oching!');
+  if (!(tgUser && tgUser.id)) return toast('Iltimos, Telegram orqali oching!');
 
-  $('checkoutPhone').value = $('profilePhone')?.value || '';
-  $('checkoutAddress').value = $('profileAddress')?.value || '';
+  $('checkoutPhone').value = $('profilePhone') ? $('profilePhone').value : '';
+  $('checkoutAddress').value = $('profileAddress') ? $('profileAddress').value : '';
   $('checkoutNote').value = '';
 
   const itemsHtml = cart.map(i =>
@@ -285,7 +285,7 @@ function goCheckout() {
     <div class="summary-row total"><span>Jami</span><span>${fmt(cartTotal() + 5000)}</span></div>`;
 
   showPage('checkout');
-  tg?.BackButton?.show();
+  if (tg && tg.BackButton) tg.BackButton.show();
 }
 
 // ── ORDER ──
@@ -300,7 +300,7 @@ async function submitOrder() {
   btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
 
   const res = await post('place_order', {
-    user_id: tgUser?.id || 0,
+    user_id: tgUser && tgUser.id ? tgUser.id : 0,
     items: cart, phone, address, note
   });
 
@@ -310,8 +310,8 @@ async function submitOrder() {
     cart = [];
     renderCart();
     updateCartBadge();
-    tg?.HapticFeedback?.notificationOccurred('success');
-    tg?.BackButton?.hide();
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    if (tg && tg.BackButton) tg.BackButton.hide();
     if (tg) {
       tg.showAlert(`✅ Buyurtma qabul qilindi!\n\n#${res.data.order_id} — ${fmt(res.data.total + 5000)}\n\n30-60 daqiqada yetkazamiz!`);
     } else {
@@ -326,7 +326,7 @@ async function submitOrder() {
 
 // ── PROFILE ──
 async function loadProfile() {
-  if (!tgUser?.id) return;
+  if (!(tgUser && tgUser.id)) return;
   const res = await get(`get_profile&user_id=${tgUser.id}`);
   if (!res.success || !res.data) return;
   const u = res.data;
@@ -347,18 +347,18 @@ async function loadProfile() {
 }
 
 async function saveProfile() {
-  if (!tgUser?.id) return toast('Telegram orqali kirish kerak!');
+  if (!(tgUser && tgUser.id)) return toast('Telegram orqali kirish kerak!');
   const phone = $('profilePhone').value.trim();
   const address = $('profileAddress').value.trim();
   const res = await post('update_profile', { user_id: tgUser.id, phone, address });
-  if (res.success) { toast('Saqlandi!'); tg?.HapticFeedback?.notificationOccurred('success'); }
+  if (res.success) { toast('Saqlandi!'); if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success'); }
 }
 
 async function loadOrderHistory() {
-  if (!tgUser?.id) return;
+  if (!(tgUser && tgUser.id)) return;
   const res = await get(`my_orders&user_id=${tgUser.id}`);
   const el = $('orderHistory');
-  if (!res.success || !res.data?.length) {
+  if (!res.success || !(res.data && res.data.length)) {
     el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--subtext);font-size:13px">Buyurtmalar yo'q</div>`;
     return;
   }
@@ -370,23 +370,24 @@ async function loadOrderHistory() {
         <span class="order-hist-id">#${o.id} — ${fmt(o.total)}</span>
         <span class="status-badge ${cMap[o.status] || 's-new'}">${sMap[o.status] || o.status}</span>
       </div>
-      <div class="order-hist-sub">${new Date(o.created_at).toLocaleString('uz-UZ')} · ${o.items?.length || 0} ta</div>
+      <div class="order-hist-sub">${new Date(o.created_at).toLocaleString('uz-UZ')} · ${o.items && o.items.length ? o.items.length : 0} ta</div>
     </div>`).join('');
 }
 
 // ── NAV ──
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  $(`page-${name}`)?.classList.add('active');
+  const pageEl = $(`page-${name}`);
+  if (pageEl) pageEl.classList.add('active');
 }
 
 function navTo(name, el) {
   showPage(name);
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  el?.classList.add('active');
+  if (el) el.classList.add('active');
   if (name === 'profile') { loadProfile(); loadOrderHistory(); }
   if (name === 'cart') renderCart();
-  if (name !== 'checkout') tg?.BackButton?.hide();
+  if (name !== 'checkout') { if (tg && tg.BackButton) tg.BackButton.hide(); }
 }
 
 // ── HELPERS ──
@@ -421,13 +422,16 @@ async function get(action) {
 }
 
 // Telegram Back Button
-tg?.BackButton?.onClick(() => {
-  const active = document.querySelector('.page.active')?.id;
-  if (active === 'page-checkout') {
-    navTo('cart', document.querySelectorAll('.nav-item')[1]);
-  } else {
-    tg.BackButton.hide();
-  }
-});
+if (tg && tg.BackButton) {
+  tg.BackButton.onClick(() => {
+    const activeEl = document.querySelector('.page.active');
+    const active = activeEl ? activeEl.id : null;
+    if (active === 'page-checkout') {
+      navTo('cart', document.querySelectorAll('.nav-item')[1]);
+    } else {
+      tg.BackButton.hide();
+    }
+  });
+}
 
 init();
