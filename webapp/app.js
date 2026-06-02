@@ -12,6 +12,10 @@ async function init() {
     tg.ready();
     tg.expand();
     tgUser = (tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+    
+    if (!tgUser) {
+      tg.showAlert("DEBUG INFO:\nURL: " + window.location.href + "\nHash: " + window.location.hash + "\nUnsafe: " + JSON.stringify(tg.initDataUnsafe));
+    }
   }
 
   const splashTimer = setTimeout(hideSplash, 900);
