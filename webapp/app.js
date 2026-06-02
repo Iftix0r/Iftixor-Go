@@ -28,7 +28,7 @@ async function init() {
     renderCart();
   } catch(e) {
     console.warn('Init error:', e);
-    toast('Xatolik yuz berdi: ' + (e.message || 'Noma\\'lum xato'));
+    toast('Xatolik yuz berdi: ' + (e.message || "Noma'lum xato"));
     if ($('headerName').textContent === 'Yuklanmoqda...') {
       $('headerName').textContent = 'Xatolik';
     }
@@ -64,7 +64,7 @@ async function saveUser() {
 
   const res = await post('save_user', { user: tgUser });
   if (!res.success) {
-    console.warn('Foydalanuvchini saqlab bo\\'lmadi');
+    console.warn("Foydalanuvchini saqlab bo'lmadi");
   }
 }
 
@@ -375,7 +375,7 @@ async function loadOrderHistory() {
   if (!res.success || !(res.data && res.data.length)) {
     el.innerHTML = `<div style="text-align:center;padding:16px;color:var(--subtext);font-size:13px">Buyurtmalar yo'q</div>`;
     if ($('statOrdersCount')) $('statOrdersCount').textContent = '0';
-    if ($('statTotalSpent')) $('statTotalSpent').textContent = '0 so\\'m';
+    if ($('statTotalSpent')) $('statTotalSpent').textContent = "0 so'm";
     return;
   }
   
