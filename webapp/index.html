@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Iftixor Go</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<!-- Splash Screen -->
+<div id="splash">
+  <div class="splash-logo">🍽️</div>
+  <div class="splash-title">Iftixor Go</div>
+  <div class="splash-sub">Tez va mazali!</div>
+</div>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="header-avatar" id="headerAvatar">👤</div>
+      <div>
+        <div class="header-name" id="headerName">Yuklanmoqda...</div>
+        <div class="header-sub">Assalomu alaykum 👋</div>
+      </div>
+    </div>
+    <div class="cart-btn" id="cartBtn" onclick="showPage('cart')">
+      🛒 <span class="cart-badge" id="cartBadge">0</span>
+    </div>
+  </header>
+
+  <!-- Pages -->
+  <div id="page-home" class="page active">
+    <!-- Search -->
+    <div class="search-wrap">
+      <input type="text" id="searchInput" class="search-input" placeholder="🔍 Ovqat qidiring..." oninput="filterProducts(this.value)">
+    </div>
+    <!-- Category Tabs -->
+    <div class="cat-tabs" id="catTabs"></div>
+    <!-- Products Grid -->
+    <div class="products" id="productGrid"></div>
+  </div>
+
+  <div id="page-cart" class="page">
+    <div class="page-title">🛒 Savat</div>
+    <div id="cartItems"></div>
+    <div class="cart-summary" id="cartSummary"></div>
+  </div>
+
+  <div id="page-profile" class="page">
+    <div class="profile-header">
+      <img id="profilePhoto" src="" class="profile-photo" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e0e0e0%22/><text x=%2250%22 y=%2265%22 text-anchor=%22middle%22 font-size=%2240%22>👤</text></svg>'">
+      <div class="profile-name" id="profileName"></div>
+      <div class="profile-username" id="profileUsername"></div>
+    </div>
+    <div class="profile-info">
+      <div class="info-item"><span class="info-label">🆔 Telegram ID</span><span id="pId"></span></div>
+      <div class="info-item"><span class="info-label">👤 Ism</span><span id="pName"></span></div>
+      <div class="info-item"><span class="info-label">📌 Username</span><span id="pUsername"></span></div>
+    </div>
+    <div class="form-section">
+      <div class="form-title">✏️ Ma'lumotlarni tahrirlash</div>
+      <input type="tel" id="profilePhone" class="form-input" placeholder="📞 Telefon raqam (+998...)">
+      <input type="text" id="profileAddress" class="form-input" placeholder="📍 Manzil">
+      <button class="btn-primary" onclick="saveProfile()">💾 Saqlash</button>
+    </div>
+    <div class="form-section">
+      <div class="form-title">📋 Buyurtmalar tarixi</div>
+      <div id="orderHistory"></div>
+    </div>
+  </div>
+
+  <div id="page-checkout" class="page">
+    <div class="page-title">📦 Buyurtma berish</div>
+    <div class="order-summary" id="orderSummaryItems"></div>
+    <div class="form-section">
+      <input type="tel" id="checkoutPhone" class="form-input" placeholder="📞 Telefon raqam *">
+      <input type="text" id="checkoutAddress" class="form-input" placeholder="📍 Manzil *">
+      <textarea id="checkoutNote" class="form-input" rows="2" placeholder="📝 Izoh (ixtiyoriy)"></textarea>
+      <div class="total-row">Jami: <strong id="checkoutTotal"></strong></div>
+      <button class="btn-primary btn-order" onclick="submitOrder()">✅ Buyurtma berish</button>
+      <button class="btn-secondary" onclick="showPage('cart')">← Orqaga</button>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" onclick="navTo('home', this)">
+      <span>🏠</span><span>Menyu</span>
+    </div>
+    <div class="nav-item" onclick="navTo('cart', this)">
+      <span>🛒</span><span>Savat</span>
+    </div>
+    <div class="nav-item" onclick="navTo('profile', this)">
+      <span>👤</span><span>Profil</span>
+    </div>
+  </nav>
+</div>
+
+<!-- Product Detail Modal -->
+<div id="productModal" class="modal-overlay hidden" onclick="closeModal(event)">
+  <div class="modal-card">
+    <img id="modalImg" src="" class="modal-img" onerror="this.style.display='none'">
+    <div class="modal-body">
+      <div class="modal-name" id="modalName"></div>
+      <div class="modal-desc" id="modalDesc"></div>
+      <div class="modal-price" id="modalPrice"></div>
+      <div class="modal-qty">
+        <button class="qty-btn" onclick="changeModalQty(-1)">−</button>
+        <span id="modalQty">1</span>
+        <button class="qty-btn" onclick="changeModalQty(1)">+</button>
+      </div>
+      <button class="btn-primary" onclick="addFromModal()">🛒 Savatga qo'shish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
