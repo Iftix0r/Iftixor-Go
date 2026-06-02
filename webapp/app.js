@@ -10,21 +10,35 @@ tg?.expand();
 tg?.setHeaderColor('#ff6b35');
 
 async function init() {
-  await saveUser();
-  await loadMenu();
-  loadProfile();
-  loadOrderHistory();
+  hideSplash(); // splash ni darhol yashirishni kafolatlash
+  try {
+    await saveUser();
+    await loadMenu();
+    loadProfile();
+    loadOrderHistory();
+  } catch(e) {
+    console.error('Init error:', e);
+  }
   renderCart();
+}
 
+function hideSplash() {
   setTimeout(() => {
-    $('splash').style.opacity = '0';
-    setTimeout(() => { $('splash').style.display = 'none'; $('app').classList.remove('hidden'); }, 400);
-  }, 1200);
+    const splash = $('splash');
+    splash.style.transition = 'opacity 0.4s ease';
+    splash.style.opacity = '0';
+    $('app').classList.remove('hidden');
+    setTimeout(() => { splash.style.display = 'none'; }, 400);
+  }, 1000);
 }
 
 // Telegram user save
 async function saveUser() {
-  if (!tgUser.id) return;
+  // Browser da test qilish uchun fallback
+  if (!tgUser.id) {
+    $('headerName').textContent = 'Mehmon';
+    return;
+  }
   // Try to get profile photo
   let photoUrl = tgUser.photo_url || '';
   await post('save_user', { user: { ...tgUser, photo_url: photoUrl } });

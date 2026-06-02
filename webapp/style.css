@@ -29,7 +29,9 @@ body {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   z-index: 9999;
-  transition: opacity .4s ease;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
 }
 .splash-logo { font-size: 72px; animation: bounce .6s ease infinite alternate; }
 .splash-title { font-size: 32px; font-weight: 700; color: #fff; margin-top: 12px; }
