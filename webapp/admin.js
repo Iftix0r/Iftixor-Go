@@ -86,7 +86,7 @@ function renderOrderRow(o) {
   var name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'Noma\'lum';
   var uname = o.username ? '@' + o.username : '';
   var items = (o.items || []).map(function(i) { return i.name + ' ×' + i.qty; }).join(' · ');
-  var date = o.created_at ? new Date(o.created_at).toLocaleString('uz-UZ') : '';
+  var date = o.created_at ? new Date(o.created_at.replace(' ', 'T')).toLocaleString('ru-RU') : '';
   var photo = o.photo_url
     ? '<img src="' + o.photo_url + '" class="order-avatar" onerror="this.src=\''+avatarUrl(o.first_name)+'\'">'
     : '<img src="' + avatarUrl(o.first_name) + '" class="order-avatar">';
@@ -216,7 +216,9 @@ function loadProducts() {
   get('admin_products').then(function(res) {
     var el = document.getElementById('productsList');
     if (!res.success || !res.data || !res.data.length) { el.innerHTML = emptyState('Mahsulotlar yo\'q', iconBox()); return; }
-    el.innerHTML = '<div class="products-grid">' + res.data.map(function(p) {
+    // Store products for editProduct access
+    window._products = res.data;
+    el.innerHTML = res.data.map(function(p, idx) {
       var avail = parseInt(p.available);
       var img = p.image
         ? '<img src="'+p.image+'" class="pac-img" onerror="this.style.display=\'none\'">'
@@ -225,22 +227,26 @@ function loadProducts() {
         img +
         '<div class="pac-body">' +
           '<div class="pac-top">' +
-            '<span class="pac-cat">' + (p.category_name || '') + '</span>' +
+            '<span class="pac-cat">' + esc(p.category_name || '') + '</span>' +
             '<span class="pac-avail ' + (avail ? 'avail-yes' : 'avail-no') + '">' + (avail ? 'Mavjud' : 'Yo\'q') + '</span>' +
           '</div>' +
-          '<div class="pac-name">' + p.name + '</div>' +
-          '<div class="pac-desc">' + (p.description || '') + '</div>' +
+          '<div class="pac-name">' + esc(p.name) + '</div>' +
+          '<div class="pac-desc">' + esc(p.description || '') + '</div>' +
           '<div class="pac-footer">' +
             '<div class="pac-price">' + fmt(p.price) + '</div>' +
             '<div class="pac-actions">' +
-              '<button class="btn-icon btn-edit" onclick=\'editProduct(' + JSON.stringify(p) + ')\'>' + iconEdit() + '</button>' +
+              '<button class="btn-icon btn-edit" onclick="editProduct(' + p.id + ')">' + iconEdit() + '</button>' +
               '<button class="btn-icon btn-delete" onclick="deleteProduct(' + p.id + ')">' + iconTrash() + '</button>' +
             '</div>' +
           '</div>' +
         '</div>' +
       '</div>';
-    }).join('') + '</div>';
+    }).join('');
   });
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function showAddProduct() {
@@ -252,7 +258,9 @@ function showAddProduct() {
   document.getElementById('productModal').classList.remove('hidden');
 }
 
-function editProduct(p) {
+function editProduct(id) {
+  var p = (window._products || []).find(function(x) { return x.id == id; });
+  if (!p) return;
   document.getElementById('productModalTitle').textContent = p.name;
   document.getElementById('editProductId').value = p.id;
   document.getElementById('prodName').value = p.name || '';
@@ -319,7 +327,7 @@ function sendBroadcast() {
     btn.disabled = false;
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Barchaga yuborish';
     var r = document.getElementById('broadcastResult');
-    r.style.display = 'block';
+    r.classList.remove('hidden');
     if (res.success) {
       r.className = 'broadcast-result success';
       r.textContent = res.data.sent + '/' + res.data.total + ' foydalanuvchiga yuborildi';
@@ -359,6 +367,6 @@ function iconUsers() { return '<svg width="40" height="40" viewBox="0 0 24 24" f
 function iconFood() { return '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="currentColor" stroke-width="1.5"/></svg>'; }
 function iconEdit() { return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'; }
 function iconTrash() { return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><polyline points="3 6 5 6 21 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'; }
-function iconPhone() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:3px"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 013.07 9.81 2 2 0 012.08 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.5"/></svg>'; }
+function iconPhone() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:3px"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.5"/></svg>'; }
 function iconPin() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:3px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="1.5"/></svg>'; }
 function iconClock() { return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:3px"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'; }
