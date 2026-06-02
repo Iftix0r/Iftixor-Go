@@ -161,14 +161,16 @@ function renderUsers(list) {
     var photo = u.photo_url
       ? '<img src="' + u.photo_url + '" class="user-card-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
       : '<img src="' + avatarUrl(u.first_name) + '" class="user-card-photo">';
-    var hasPhone = u.phone ? '<span class="user-tag tag-green">' + u.phone + '</span>' : '';
-    var hasAddr = u.address ? '<span class="user-tag tag-blue">' + u.address.substring(0,20) + (u.address.length>20?'…':'') + '</span>' : '';
-    return '<div class="user-card" onclick="showUserDetail(' + u.id + ')">' +
+    var hasPhone = u.phone ? '<span class="user-tag tag-green">' + esc(u.phone) + '</span>' : '';
+    var hasAddr = u.address ? '<span class="user-tag tag-blue">' + esc(u.address.substring(0,20)) + (u.address.length>20?'…':'') + '</span>' : '';
+    var isBlocked = parseInt(u.is_blocked) === 1;
+    var blockedTag = isBlocked ? '<span class="user-tag" style="background:rgba(239,68,68,.12);color:var(--red)">⛔ Bloklangan</span>' : '';
+    return '<div class="user-card" onclick="showUserDetail(' + u.id + ')" style="' + (isBlocked ? 'opacity:.7' : '') + '">' +
       photo +
       '<div class="user-card-info">' +
-        '<div class="user-card-name">' + name + '</div>' +
-        '<div class="user-card-meta">' + (u.username ? '@' + u.username : 'ID: ' + u.id) + '</div>' +
-        '<div class="user-card-tags">' + hasPhone + hasAddr + '</div>' +
+        '<div class="user-card-name">' + esc(name) + '</div>' +
+        '<div class="user-card-meta">' + (u.username ? '@' + esc(u.username) : 'ID: ' + u.id) + '</div>' +
+        '<div class="user-card-tags">' + hasPhone + hasAddr + blockedTag + '</div>' +
       '</div>' +
       '<svg class="user-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
     '</div>';
@@ -183,23 +185,32 @@ function showUserDetail(userId) {
     ? '<img src="' + u.photo_url + '" class="umodal-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
     : '<img src="' + avatarUrl(u.first_name) + '" class="umodal-photo">';
 
+  var isBlocked = parseInt(u.is_blocked) === 1;
+  var blockBtn = isBlocked
+    ? '<button class="btn-sm" style="color:var(--green);border-color:var(--green)" onclick="unblockUser(' + u.id + ')">✓ Blokdan olish</button>'
+    : '<button class="btn-sm" style="color:var(--red);border-color:var(--red)" onclick="promptBlockUser(' + u.id + ')">⛔ Bloklash</button>';
+
   document.getElementById('userModalBody').innerHTML =
     '<div class="umodal-header">' + photo +
-      '<div class="umodal-name">' + name + '</div>' +
-      '<div class="umodal-username">' + (u.username ? '@' + u.username : '') + '</div>' +
+      '<div class="umodal-name">' + esc(name) + '</div>' +
+      '<div class="umodal-username">' + (u.username ? '@' + esc(u.username) : '') + '</div>' +
+      (isBlocked ? '<div style="margin-top:6px"><span class="badge badge-cancelled">Bloklangan' + (u.block_reason ? ': ' + esc(u.block_reason) : '') + '</span></div>' : '') +
     '</div>' +
     '<div class="umodal-rows">' +
       uRow('Telegram ID', u.id) +
-      uRow('Ism', name) +
-      uRow('Username', u.username ? '@'+u.username : '—') +
-      uRow('Telefon', u.phone || '—') +
-      uRow('Manzil', u.address || '—') +
-      uRow('Til', u.language_code || '—') +
-      uRow('Qo\'shilgan', u.created_at ? new Date(u.created_at).toLocaleDateString('uz-UZ') : '—') +
+      uRow('Ism', esc(name)) +
+      uRow('Username', u.username ? '@'+esc(u.username) : '—') +
+      uRow('Telefon', esc(u.phone || '—')) +
+      uRow('Manzil', esc(u.address || '—')) +
+      uRow('Buyurtmalar', (u.order_count || 0) + ' ta') +
+      uRow('Jami xarid', fmt(u.total_spent || 0)) +
+      uRow('Qo\'shilgan', u.created_at ? new Date(u.created_at.replace(' ','T')).toLocaleDateString('ru-RU') : '—') +
     '</div>' +
-    '<div style="padding:0 20px 16px;display:flex;gap:8px">' +
+    '<div style="padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)">' +
       '<a href="https://t.me/' + (u.username || '') + '" target="_blank" class="btn-primary" style="flex:1;text-align:center;text-decoration:none;' + (!u.username?'opacity:.4;pointer-events:none':'') + '">Telegram</a>' +
-      '<a href="tel:' + (u.phone||'') + '" class="btn-sm" style="' + (!u.phone?'opacity:.4;pointer-events:none':'') + '">Qo\'ng\'iroq</a>' +
+      '<a href="tel:' + (u.phone||'') + '" class="btn-sm" style="' + (!u.phone?'opacity:.4;pointer-events:none':'') + '">📞</a>' +
+      '<button class="btn-sm" onclick="promptSendMessage(' + u.id + ')">✉️ Xabar</button>' +
+      blockBtn +
     '</div>';
   document.getElementById('userModal').classList.remove('hidden');
 }
@@ -209,6 +220,40 @@ function uRow(label, val) {
 }
 
 function closeUserModal() { document.getElementById('userModal').classList.add('hidden'); }
+
+// ── BLOCK / UNBLOCK ──
+function promptBlockUser(userId) {
+  var reason = prompt('Bloklash sababi (ixtiyoriy):');
+  if (reason === null) return; // Cancel bosildi
+  post('admin_block_user', { user_id: userId, reason: reason }).then(function(res) {
+    if (res.success) {
+      adminToast('Foydalanuvchi bloklandi');
+      closeUserModal();
+      loadUsers();
+    } else adminToast('Xatolik yuz berdi!');
+  });
+}
+
+function unblockUser(userId) {
+  if (!confirm('Foydalanuvchini blokdan chiqarasizmi?')) return;
+  post('admin_unblock_user', { user_id: userId }).then(function(res) {
+    if (res.success) {
+      adminToast('Foydalanuvchi blokdan chiqarildi');
+      closeUserModal();
+      loadUsers();
+    } else adminToast('Xatolik yuz berdi!');
+  });
+}
+
+// ── SEND MESSAGE ──
+function promptSendMessage(userId) {
+  var msg = prompt('Foydalanuvchiga yubormoqchi bo\'lgan xabaringiz:');
+  if (!msg || !msg.trim()) return;
+  post('admin_send_message', { user_id: userId, message: msg.trim() }).then(function(res) {
+    if (res.success) adminToast('Xabar yuborildi ✓');
+    else adminToast('Xabar yuborilmadi!');
+  });
+}
 
 // ── PRODUCTS ──
 function loadProducts() {
