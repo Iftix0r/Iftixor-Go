@@ -137,6 +137,12 @@ try {
         ref_id INT DEFAULT 0,
         updated_at DATETIME DEFAULT NOW()
     )");
+    db()->exec("CREATE TABLE IF NOT EXISTS seller_draft (
+        user_id BIGINT PRIMARY KEY,
+        cat_id INT DEFAULT 0,
+        name VARCHAR(255) DEFAULT '',
+        price DECIMAL(10,2) DEFAULT 0
+    )");
 } catch (Throwable $e) {}
 
 function getUserRole(int $id): string {
@@ -509,9 +515,37 @@ if (isset($update['callback_query'])) {
         ]);
     }
 
+    // ── Skip desc ──
+    elseif ($data === 'prod_skip_desc') {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $d = db()->prepare("SELECT * FROM seller_draft WHERE user_id=?");
+        $d->execute([$fromId]); $d = $d->fetch();
+        if (!$d || !$d['name'] || !$d['price']) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Xatolik']); exit; }
+        $rest = getSellerRestaurant($fromId);
+        db()->prepare("INSERT INTO products (category_id, restaurant_id, name, description, price, available) VALUES (?,?,?,?,?,1)")
+            ->execute([$d['cat_id'], $rest['id'], $d['name'], '', $d['price']]);
+        db()->prepare("DELETE FROM seller_draft WHERE user_id=?")->execute([$fromId]);
+        clearSellerState($fromId);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => '✅ Qo\'shildi']);
+        $products = getSellerProducts($fromId);
+        $rows = [];
+        foreach ($products as $p) {
+            $av = $p['available'] ? '✅' : '❌';
+            $rows[] = [['text' => "{$av} {$p['name']} — ".number_format($p['price'])." so'm", 'callback_data' => 'prod_detail_'.$p['id']]];
+        }
+        $rows[] = [['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'prod_add_start']];
+        $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "✅ *{$d['name']}* qo'shildi!\n\n🍽️ *Menyu:*",
+            'parse_mode' => 'Markdown', 'reply_markup' => ['inline_keyboard' => $rows]]);
+        exit;
+    }
+
     // ── State bekor qilish ──
     elseif ($data === 'state_cancel') {
         clearSellerState($fromId);
+        db()->prepare("DELETE FROM seller_draft WHERE user_id=?")->execute([$fromId]);
         tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Bekor qilindi']);
         tg('editMessageText', [
             'chat_id' => $fromId, 'message_id' => $msgId,
@@ -644,6 +678,90 @@ if (isset($msg['location'])) {
 
 // ── MATN XABARLARI ──
 $text = trim($msg['text'] ?? '');
+
+// ── STATE handler: sotuvchi jarayon ──
+if ($userRole === 'seller' && $text && !str_starts_with($text, '/')) {
+    $st = getSellerState($chatId);
+    if ($st['state']) {
+        $rest = getSellerRestaurant($chatId);
+        switch ($st['state']) {
+
+            case 'awaiting_prod_name':
+                // ref_id = category_id
+                db()->prepare("INSERT INTO seller_draft (user_id, cat_id, name) VALUES (?,?,?) ON DUPLICATE KEY UPDATE cat_id=VALUES(cat_id), name=VALUES(name)")->execute([$chatId, $st['ref_id'], $text]);
+                setSellerState($chatId, 'awaiting_prod_price', $st['ref_id']);
+                sendMsg($chatId, "➕ Nom saqlandi: *{$text}*\n\nEndi narxini yuboring (masalan: 25000):");
+                exit;
+
+            case 'awaiting_prod_price':
+                $price = (float)preg_replace('/[^\d.]/', '', $text);
+                if ($price <= 0) { sendMsg($chatId, '❌ Noto\'g\'ri narx! Faqat raqam kiriting (masalan: 25000)'); exit; }
+                db()->prepare("INSERT INTO seller_draft (user_id, price) VALUES (?,?) ON DUPLICATE KEY UPDATE price=VALUES(price)")->execute([$chatId, $price]);
+                setSellerState($chatId, 'awaiting_prod_desc', 0);
+                sendMsg($chatId, "✅ Narx: *".number_format($price)." so'm*\n\nTavsif yuboring (yoki /skip bosing):", ['inline_keyboard' => [[['text' => '⏭️ Skip', 'callback_data' => 'prod_skip_desc']]]]);
+                exit;
+
+            case 'awaiting_prod_desc':
+                $desc = $text === '/skip' ? '' : $text;
+                // Draft dan olib saqlash
+                $d = db()->prepare("SELECT * FROM seller_draft WHERE user_id=?");
+                $d->execute([$chatId]); $d = $d->fetch();
+                if (!$d || !$d['name'] || !$d['price']) { sendMsg($chatId, '❌ Xatolik, qayta boshlang.'); clearSellerState($chatId); exit; }
+                db()->prepare("INSERT INTO products (category_id, restaurant_id, name, description, price, available) VALUES (?,?,?,?,?,1)")
+                    ->execute([$d['cat_id'], $rest['id'], $d['name'], $desc, $d['price']]);
+                db()->prepare("DELETE FROM seller_draft WHERE user_id=?")->execute([$chatId]);
+                clearSellerState($chatId);
+                $products = getSellerProducts($chatId);
+                $rows = [];
+                foreach ($products as $p) {
+                    $av = $p['available'] ? '✅' : '❌';
+                    $rows[] = [['text' => "{$av} {$p['name']} — ".number_format($p['price'])." so'm", 'callback_data' => 'prod_detail_'.$p['id']]];
+                }
+                $rows[] = [['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'prod_add_start']];
+                $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
+                tg('sendMessage', ['chat_id' => $chatId,
+                    'text' => "✅ *{$d['name']}* menyuga qo'shildi!\n\n🍽️ Menyu:",
+                    'parse_mode' => 'Markdown', 'reply_markup' => ['inline_keyboard' => $rows]]);
+                exit;
+
+            case 'awaiting_price':
+                // ref_id = product_id
+                $price = (float)preg_replace('/[^\d.]/', '', $text);
+                if ($price <= 0) { sendMsg($chatId, '❌ Noto\'g\'ri narx! Faqat raqam kiriting'); exit; }
+                $pid = $st['ref_id'];
+                $own = db()->prepare("SELECT id, name FROM products WHERE id=? AND restaurant_id=?");
+                $own->execute([$pid, $rest['id']]); $own = $own->fetch();
+                if (!$own) { sendMsg($chatId, '❌ Ruxsat yo\'q'); clearSellerState($chatId); exit; }
+                db()->prepare("UPDATE products SET price=? WHERE id=?")->execute([$price, $pid]);
+                clearSellerState($chatId);
+                sendMsg($chatId, "✅ *{$own['name']}* narxi yangilandi: *".number_format($price)." so'm*",
+                    ['inline_keyboard' => [[['text' => '🔙 Menyu', 'callback_data' => 'seller_menu']]]]);
+                exit;
+
+            case 'awaiting_set_name':
+                if (strlen($text) < 2) { sendMsg($chatId, '❌ Nom kamida 2 ta harf bo\'lsin'); exit; }
+                db()->prepare("UPDATE restaurants SET name=? WHERE id=?")->execute([$text, $rest['id']]);
+                clearSellerState($chatId);
+                sendMsg($chatId, "✅ Restoran nomi: *{$text}*",
+                    ['inline_keyboard' => [[['text' => '⚙️ Sozlamalar', 'callback_data' => 'seller_settings']]]]);
+                exit;
+
+            case 'awaiting_set_phone':
+                db()->prepare("UPDATE restaurants SET phone=? WHERE id=?")->execute([$text, $rest['id']]);
+                clearSellerState($chatId);
+                sendMsg($chatId, "✅ Telefon saqlandi: *{$text}*",
+                    ['inline_keyboard' => [[['text' => '⚙️ Sozlamalar', 'callback_data' => 'seller_settings']]]]);
+                exit;
+
+            case 'awaiting_set_address':
+                db()->prepare("UPDATE restaurants SET address=? WHERE id=?")->execute([$text, $rest['id']]);
+                clearSellerState($chatId);
+                sendMsg($chatId, "✅ Manzil saqlandi: *{$text}*",
+                    ['inline_keyboard' => [[['text' => '⚙️ Sozlamalar', 'callback_data' => 'seller_settings']]]]);
+                exit;
+        }
+    }
+}
 
 if ($text === '/start') {
     $welcome = "👋 Assalomu alaykum, *{$firstName}*!\n\n";
