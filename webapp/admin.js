@@ -246,7 +246,7 @@ function renderTaxiRow(r) {
     '<div class="taxi-row-main">' +
       '<div class="taxi-row-title">#' + r.id + ' — ' + esc(name) + '</div>' +
       '<div class="taxi-row-meta">' + esc(statusText) + ' · ' + esc(date) + '</div>' +
-      '<div class="taxi-row-address">' + esc(r.pickup_address || '—') + ' → ' + esc(r.dropoff_address || '—') + '</div>' +
+      '<div class="taxi-row-address">' + esc(r.from_address || '—') + ' → ' + esc(r.to_address || '—') + '</div>' +
     '</div>' +
     '<div class="taxi-row-right"><span class="badge badge-' + (r.status === 'cancelled' ? 'cancelled' : r.status === 'completed' ? 'success' : 'blue') + '">' + esc(statusText) + '</span></div>' +
   '</div>';
@@ -272,8 +272,8 @@ function showTaxiDetail(rideId) {
         '<div><strong>Mijoz:</strong> ' + esc((ride.first_name || '') + ' ' + (ride.last_name || '')) + '</div>' +
         '<div><strong>Status:</strong> ' + esc(statusLabels[ride.status] || ride.status) + '</div>' +
         '<div><strong>Telefon:</strong> ' + esc(ride.phone || '—') + '</div>' +
-        '<div><strong>Manzil:</strong> ' + esc(ride.pickup_address || '—') + '</div>' +
-        '<div><strong>Yetkazish:</strong> ' + esc(ride.dropoff_address || '—') + '</div>' +
+        '<div><strong>Manzil:</strong> ' + esc(ride.from_address || '—') + '</div>' +
+        '<div><strong>Yetkazish:</strong> ' + esc(ride.to_address || '—') + '</div>' +
         '<div><strong>Narx:</strong> ' + fmtFull(ride.price || 0) + '</div>' +
       '</div>' +
       '<div style="margin-top:18px">' +
