@@ -1,4 +1,15 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/bot_error.log');
+
+set_exception_handler(function(Throwable $e) {
+    file_put_contents(__DIR__ . '/bot_error.log',
+        date('Y-m-d H:i:s') . ' EXCEPTION: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n",
+        FILE_APPEND);
+});
+
 require_once 'config.php';
 require_once 'db.php';
 
