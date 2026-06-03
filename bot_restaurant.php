@@ -146,17 +146,31 @@ if (!$rest) {
     
     if ($state === 'create_name') {
         setState($chatId, 'create_phone', ['name' => $text]);
-        tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📞 Do'kon telefon raqamini kiriting:"]);
+        $phoneKeyboard = [
+            ['text' => "📞 Telefon raqamini yuboring", 'request_contact' => true]
+        ];
+        tg_rest('sendMessage', [
+            'chat_id' => $chatId,
+            'text' => "📞 Do'kon telefon raqamini yuboring:",
+            'reply_markup' => ['keyboard' => [$phoneKeyboard], 'resize_keyboard' => true, 'one_time_keyboard' => true]
+        ]);
         exit;
     }
     
-    if ($state === 'create_phone') {
-        $tempData['phone'] = $text;
-        setState($chatId, 'create_address', $tempData);
-        tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📍 Do'kon manzilini kiriting:"]);
-        exit;
-    }
-    
+        if ($state === 'create_phone') {
+            // Agar foydalanuvchi kontakt yuborgan bo'lsa, telefon raqamini olinadi
+            if (isset($msg['contact']) && $msg['contact']['phone_number']) {
+                $tempData['phone'] = $msg['contact']['phone_number'];
+                setState($chatId, 'create_address', $tempData);
+                tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📍 Do'kon manzilini kiriting:"]);
+                exit;
+            }
+            // Aks holda, matnli telefonni qabul qilamiz
+            $tempData['phone'] = $text;
+            setState($chatId, 'create_address', $tempData);
+            tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📍 Do'kon manzilini kiriting:"]);
+            exit;
+        }  
     if ($state === 'create_address') {
         $name = $tempData['name'] ?? 'Nomsiz';
         $phone = $tempData['phone'] ?? '';
