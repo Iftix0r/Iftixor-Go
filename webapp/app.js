@@ -697,6 +697,12 @@ function setRestaurantFilter(id, name) {
     .filter(p => p.restaurant_id == id)
     .sort((a, b) => (b.order_count || 0) - (a.order_count || 0));
 
+  const totalOrders = allProds.reduce((sum, p) => sum + (p.order_count || 0), 0);
+  const views = (parseInt(allProds[0]?.restaurant_views) || 0) + 1;
+  
+  // Backgroundda ko'rishlar sonini oshiramiz
+  post('view_restaurant', { restaurant_id: id });
+
   const initials = name.split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 2);
 
   const page = $('page-restaurant');
@@ -708,7 +714,7 @@ function setRestaurantFilter(id, name) {
         </div>
         <div class="rest-page-info-centered">
           <div class="rest-page-name">${esc(name)}</div>
-          <div class="rest-page-sub">${allProds.length} ta mahsulot • Restoran</div>
+          <div class="rest-page-sub">👁️ ${views} marta ko'rilgan &nbsp;•&nbsp; 🔥 ${totalOrders} ta buyurtma</div>
         </div>
       </div>
       <div class="rest-page-nav">

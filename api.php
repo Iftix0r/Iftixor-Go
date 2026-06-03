@@ -161,13 +161,25 @@ switch ($action) {
     // ── MENU ──
     case 'get_menu':
         $cats  = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
-        $prods = db()->query("SELECT p.*, r.name as restaurant_name FROM products p LEFT JOIN restaurants r ON p.restaurant_id=r.id WHERE p.available=1 ORDER BY p.order_count DESC, p.category_id")->fetchAll();
+        $prods = db()->query("SELECT p.*, r.name as restaurant_name, r.views as restaurant_views FROM products p LEFT JOIN restaurants r ON p.restaurant_id=r.id WHERE p.available=1 ORDER BY p.order_count DESC, p.category_id")->fetchAll();
         $menu = [];
         foreach ($cats as $c) {
             $c['products'] = array_values(array_filter($prods, fn($p) => $p['category_id'] == $c['id']));
             $menu[] = $c;
         }
         resp($menu);
+        break;
+
+    case 'view_restaurant':
+        try {
+            $rid = (int)($input['restaurant_id'] ?? 0);
+            if ($rid > 0) {
+                db()->prepare("UPDATE restaurants SET views = views + 1 WHERE id = ?")->execute([$rid]);
+            }
+            resp(['success' => true]);
+        } catch (Exception $e) {
+            resp('Error', false);
+        }
         break;
 
     // ── ORDER ──

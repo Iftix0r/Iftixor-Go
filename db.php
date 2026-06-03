@@ -143,9 +143,17 @@ try {
             address TEXT,
             phone VARCHAR(50),
             is_active TINYINT(1) DEFAULT 1,
+            views INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ");
+} catch (Exception $e) { /* ignore */ }
+
+try {
+    $rcols = db()->query("SHOW COLUMNS FROM restaurants LIKE 'views'")->fetchAll();
+    if (empty($rcols)) {
+        db()->exec("ALTER TABLE restaurants ADD COLUMN views INT DEFAULT 0");
+    }
 } catch (Exception $e) { /* ignore */ }
 
 try {
