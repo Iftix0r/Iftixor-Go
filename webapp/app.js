@@ -743,6 +743,8 @@ function apiHeaders() {
 
 async function post(action, data) {
   try {
+    // initData ni body ga ham qo'shamiz (header o'tmaydigan serverlar uchun)
+    if (tg?.initData && !data.init_data) data.init_data = tg.initData;
     const r = await fetch(`${API}?action=${action}`, {
       method: 'POST', headers: apiHeaders(),
       body: JSON.stringify(data)
@@ -753,7 +755,12 @@ async function post(action, data) {
 
 async function get(action) {
   try {
-    const r = await fetch(`${API}?action=${action}`, { headers: apiHeaders() });
+    // initData ni URL ga ham qo'shamiz
+    const sep = action.includes('&') ? '&' : '?';
+    const url = tg?.initData
+      ? `${API}?action=${action}&init_data=${encodeURIComponent(tg.initData)}`
+      : `${API}?action=${action}`;
+    const r = await fetch(url, { headers: apiHeaders() });
     return await r.json();
   } catch { return { success: false }; }
 }

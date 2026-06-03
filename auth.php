@@ -26,10 +26,21 @@ function validateInitData(?string $initData): ?array {
 }
 
 function getInitDataFromRequest(): ?string {
+    // 1. HTTP header (app.js tomonidan yuboriladi)
     $h = $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '';
-    if ($h) return $h;
+    if ($h !== '') return $h;
+
+    // 2. JSON body (global $input api.php da avval aniqlanadi)
     global $input;
-    return $input['init_data'] ?? $_GET['init_data'] ?? null;
+    if (!empty($input['init_data'])) return $input['init_data'];
+
+    // 3. GET parametr
+    if (!empty($_GET['init_data'])) return $_GET['init_data'];
+
+    // 4. POST parametr (form-data holatida)
+    if (!empty($_POST['init_data'])) return $_POST['init_data'];
+
+    return null;
 }
 
 function requireTelegramUser(): array {

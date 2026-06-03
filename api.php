@@ -7,10 +7,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
 require_once 'config.php';
 require_once 'db.php';
-require_once 'auth.php';
 
+// $input avval aniqlanadi — auth.php undan foydalanadi
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
-$input = json_decode(file_get_contents('php://input'), true) ?? [];
+$input  = json_decode(file_get_contents('php://input'), true) ?? [];
+
+require_once 'auth.php';
 
 function resp($data, $success = true): void {
     echo json_encode(['success' => $success, 'data' => $data]);
