@@ -90,9 +90,21 @@ function orderDetailKeyboard(int $orderId, string $status): array {
 }
 
 function getSellerRestaurant(int $tgId): ?array {
+    // avval users.restaurant_id orqali
     $s = db()->prepare("SELECT r.* FROM restaurants r JOIN users u ON u.restaurant_id=r.id WHERE u.id=?");
     $s->execute([$tgId]);
-    return $s->fetch() ?: null;
+    $r = $s->fetch();
+    if ($r) return $r;
+    // bo'lmasa owner_tg_id orqali
+    $s2 = db()->prepare("SELECT * FROM restaurants WHERE owner_tg_id=?");
+    $s2->execute([$tgId]);
+    $r2 = $s2->fetch();
+    if ($r2) {
+        // restaurant_id ni users ga yozib qo'yamiz
+        db()->prepare("UPDATE users SET restaurant_id=? WHERE id=?")->execute([$r2['id'], $tgId]);
+        return $r2;
+    }
+    return null;
 }
 
 function getSellerOrders(int $tgId): array {
