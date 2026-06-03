@@ -3,9 +3,10 @@
 // Admin bot for managing the entire Iftixor platform (restaurants, orders, taxi, users)
 // Token is stored in .env as ADMIN_BOT_TOKEN
 
-$adminToken = getenv('ADMIN_BOT_TOKEN');
+require_once __DIR__ . '/config.php';
+$adminToken = ADMIN_BOT_TOKEN;
 if (!$adminToken) {
-    error_log('ADMIN_BOT_TOKEN not set');
+    error_log('ADMIN_BOT_TOKEN not set in config.php');
     exit;
 }
 
