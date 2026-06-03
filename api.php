@@ -198,25 +198,56 @@ switch ($action) {
         
         $rid = $rest['id'];
         
-        // Orders
-        $o = db()->prepare("SELECT * FROM orders WHERE items LIKE ? ORDER BY id DESC LIMIT 50");
-        $o->execute(['%restaurant_id":'.$rid.'%']); // This assumes items JSON has restaurant_id? Wait, items doesn't have it!
-        // We will fix order retrieval in the next step
-        
         // Let's just return products and categories for now
         $cats = db()->query("SELECT * FROM categories")->fetchAll();
         $prods = db()->prepare("SELECT * FROM products WHERE restaurant_id=?");
         $prods->execute([$rid]);
+        $prodsList = $prods->fetchAll();
+        
+        $prodIds = array_column($prodsList, 'id');
+        
+        // Orders
+        $allOrders = db()->query("SELECT * FROM orders ORDER BY id DESC LIMIT 500")->fetchAll();
+        $restOrders = [];
+        $totalRevenue = 0;
+        
+        foreach ($allOrders as $o) {
+            $items = json_decode($o['items'], true);
+            if (!is_array($items)) continue;
+            
+            $myItems = [];
+            $myTotal = 0;
+            foreach ($items as $item) {
+                if (in_array((int)$item['id'], $prodIds)) {
+                    $myItems[] = $item;
+                    $myTotal += ($item['price'] * $item['qty']);
+                }
+            }
+            
+            if (count($myItems) > 0) {
+                $o['items'] = json_encode($myItems, JSON_UNESCAPED_UNICODE);
+                $o['my_total'] = $myTotal;
+                $restOrders[] = $o;
+                if ($o['status'] === 'delivered' || $o['status'] === 'confirmed' || $o['status'] === 'cooking' || $o['status'] === 'new') {
+                    $totalRevenue += $myTotal;
+                }
+            }
+        }
         
         // Total orders sold by this restaurant
-        $prodsList = $prods->fetchAll();
         $totalOrders = array_reduce($prodsList, fn($s, $p) => $s + (int)$p['order_count'], 0);
         
         resp([
             'restaurant' => $rest,
             'products' => $prodsList,
             'categories' => $cats,
-            'stats' => ['views' => $rest['views'], 'total_orders' => $totalOrders]
+            'orders' => array_slice($restOrders, 0, 50),
+            'stats' => [
+                'views' => $rest['views'], 
+                'total_orders' => count($restOrders), 
+                'total_products_sold' => $totalOrders,
+                'total_revenue' => $totalRevenue
+            ]
         ]);
         break;
         
