@@ -285,36 +285,54 @@ if (isset($update['callback_query'])) {
         exit;
     }
 
-    // ── SOTUVCHI: menyu boshqarish ──
+    // ── SOTUVCHI: menyu ──
     elseif ($data === 'seller_menu') {
         $role = getUserRole($fromId);
         if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
         $products = getSellerProducts($fromId);
-        if (empty($products)) {
-            tg('editMessageText', [
-                'chat_id' => $fromId, 'message_id' => $msgId,
-                'text' => "🍽️ Menyu bo'sh.\n\nQo'shish uchun adminga murojaat qiling.",
-                'parse_mode' => 'Markdown',
-                'reply_markup' => ['inline_keyboard' => [[['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']]]],
-            ]);
-        } else {
-            $rows = [];
-            foreach ($products as $p) {
-                $avail = $p['available'] ? '✅' : '❌';
-                $rows[] = [['text' => "{$avail} {$p['name']} — ".number_format($p['price'])." so'm",
-                            'callback_data' => 'prod_toggle_'.$p['id']]];
-            }
-            $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
-            tg('editMessageText', [
-                'chat_id' => $fromId, 'message_id' => $msgId,
-                'text' => "🍽️ *Menyungiz (".count($products)." ta):*\n\n✅ = mavjud, ❌ = yoq\nToggle qilish uchun bosing:",
-                'parse_mode' => 'Markdown',
-                'reply_markup' => ['inline_keyboard' => $rows],
-            ]);
+        $rows = [];
+        foreach ($products as $p) {
+            $avail = $p['available'] ? '✅' : '❌';
+            $rows[] = [['text' => "{$avail} {$p['name']} — ".number_format($p['price'])." so'm",
+                        'callback_data' => 'prod_detail_'.$p['id']]];
         }
+        $rows[] = [['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'prod_add_start']];
+        $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "🍽️ *Menyu" . (count($products) ? ' ('.count($products).' ta)' : ' \u2014 bo\'sh') . "*\n\nMahsulotni bosing yoki yangi qo'shing:",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => $rows],
+        ]);
     }
 
-    // ── SOTUVCHI: mahsulot toggle (mavjud/mavjud emas) ──
+    // ── SOTUVCHI: mahsulot detail ──
+    elseif (preg_match('/^prod_detail_(\d+)$/', $data, $m)) {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $pid = (int)$m[1];
+        $p = db()->prepare("SELECT p.*, c.name as cat_name FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE p.id=?");
+        $p->execute([$pid]); $p = $p->fetch();
+        if (!$p) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Topilmadi']); exit; }
+        $avail = $p['available'] ? '✅ Mavjud' : '❌ Mavjud emas';
+        $text = "🍽️ *{$p['name']}*\n\n"
+              . "💰 Narx: *".number_format($p['price'])." so'm*\n"
+              . "🏷️ Kategoriya: {$p['cat_name']}\n"
+              . "📊 Status: {$avail}\n"
+              . ($p['description'] ? "📝 {$p['description']}" : '');
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $text, 'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [
+                [['text' => $p['available'] ? '❌ Yopish' : '✅ Ochish', 'callback_data' => 'prod_toggle_'.$pid],
+                 ['text' => '✏️ Narx o\'zgartir', 'callback_data' => 'prod_price_'.$pid]],
+                [['text' => '🗑️ O\'chirish', 'callback_data' => 'prod_delete_'.$pid]],
+                [['text' => '🔙 Menyu', 'callback_data' => 'seller_menu']],
+            ]],
+        ]);
+    }
+
+    // ── SOTUVCHI: mahsulot toggle ──
     elseif (preg_match('/^prod_toggle_(\d+)$/', $data, $m)) {
         $role = getUserRole($fromId);
         if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
@@ -325,23 +343,157 @@ if (isset($update['callback_query'])) {
         $newAvail = $p['available'] ? 0 : 1;
         db()->prepare("UPDATE products SET available=? WHERE id=?")->execute([$newAvail, $pid]);
         tg('answerCallbackQuery', ['callback_query_id' => $cb['id'],
-            'text' => $newAvail ? '✅ Mahsulot faollashtirildi' : '❌ Mahsulot o\'chirildi']);
-        // Menyuni qayta ko'rsat
+            'text' => $newAvail ? '✅ Faollashtirildi' : '❌ O\'chirildi']);
+        // Detail qayta ko'rsat
+        $cb['data'] = "prod_detail_{$pid}";
+        $p2 = db()->prepare("SELECT p.*, c.name as cat_name FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE p.id=?");
+        $p2->execute([$pid]); $p2 = $p2->fetch();
+        $avail = $p2['available'] ? '✅ Mavjud' : '❌ Mavjud emas';
+        $text = "🍽️ *{$p2['name']}*\n\n💰 Narx: *".number_format($p2['price'])." so'm*\n🏷️ Kategoriya: {$p2['cat_name']}\n📊 Status: {$avail}";
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $text, 'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [
+                [['text' => $p2['available'] ? '❌ Yopish' : '✅ Ochish', 'callback_data' => 'prod_toggle_'.$pid],
+                 ['text' => '✏️ Narx o\'zgartir', 'callback_data' => 'prod_price_'.$pid]],
+                [['text' => '🗑️ O\'chirish', 'callback_data' => 'prod_delete_'.$pid]],
+                [['text' => '🔙 Menyu', 'callback_data' => 'seller_menu']],
+            ]],
+        ]);
+        exit;
+    }
+
+    // ── SOTUVCHI: mahsulot o'chirish ──
+    elseif (preg_match('/^prod_delete_(\d+)$/', $data, $m)) {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $pid = (int)$m[1];
+        // Faqat o'z mahsuloti
+        $rest = getSellerRestaurant($fromId);
+        $own = db()->prepare("SELECT id, name FROM products WHERE id=? AND restaurant_id=?");
+        $own->execute([$pid, $rest['id'] ?? 0]); $own = $own->fetch();
+        if (!$own) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Ruxsat yo\'q']); exit; }
+        db()->prepare("DELETE FROM products WHERE id=?")->execute([$pid]);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => '🗑️ O\'chirildi']);
+        // Menyuga qayt
         $products = getSellerProducts($fromId);
         $rows = [];
-        foreach ($products as $pr) {
-            $avail = $pr['available'] ? '✅' : '❌';
-            $rows[] = [['text' => "{$avail} {$pr['name']} — ".number_format($pr['price'])." so'm",
-                        'callback_data' => 'prod_toggle_'.$pr['id']]];
+        foreach ($products as $p) {
+            $avail = $p['available'] ? '✅' : '❌';
+            $rows[] = [['text' => "{$avail} {$p['name']} — ".number_format($p['price'])." so'm",
+                        'callback_data' => 'prod_detail_'.$p['id']]];
         }
+        $rows[] = [['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'prod_add_start']];
         $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
         tg('editMessageText', [
             'chat_id' => $fromId, 'message_id' => $msgId,
-            'text' => "🍽️ *Menyungiz (".count($products)." ta):*\n\n✅ = mavjud, ❌ = yoq\nToggle qilish uchun bosing:",
+            'text' => "🍽️ *Menyu" . (count($products) ? ' ('.count($products).' ta)' : ' \u2014 bo\'sh') . "*\n\nMahsulotni bosing yoki yangi qo'shing:",
             'parse_mode' => 'Markdown',
             'reply_markup' => ['inline_keyboard' => $rows],
         ]);
         exit;
+    }
+
+    // ── SOTUVCHI: narx o'zgartirish boshlash ──
+    elseif (preg_match('/^prod_price_(\d+)$/', $data, $m)) {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $pid = (int)$m[1];
+        setSellerState($fromId, 'awaiting_price', $pid);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
+        tg('sendMessage', [
+            'chat_id' => $fromId,
+            'text' => "✏️ Yangi narxni yuboring (faqat raqam, masalan: 15000)",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [[['text' => '❌ Bekor', 'callback_data' => 'state_cancel']]]],
+        ]);
+        exit;
+    }
+
+    // ── SOTUVCHI: mahsulot qo'shish ──
+    elseif ($data === 'prod_add_start') {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        // Kategoriyalarni ko'rsat
+        $cats = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
+        $rows = [];
+        foreach ($cats as $c) {
+            $rows[] = [['text' => "{$c['icon']} {$c['name']}", 'callback_data' => 'prod_add_cat_'.$c['id']]];
+        }
+        $rows[] = [['text' => '❌ Bekor', 'callback_data' => 'seller_menu']];
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "➕ *Yangi mahsulot*\n\nKategoriyani tanlang:",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => $rows],
+        ]);
+    }
+
+    elseif (preg_match('/^prod_add_cat_(\d+)$/', $data, $m)) {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $catId = (int)$m[1];
+        setSellerState($fromId, 'awaiting_prod_name', $catId);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "➕ *Yangi mahsulot*\n\nMahsulot nomini yuboring:",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [[['text' => '❌ Bekor', 'callback_data' => 'state_cancel']]]],
+        ]);
+    }
+
+    // ── SOTUVCHI: sozlamalar ──
+    elseif ($data === 'seller_settings') {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $rest = getSellerRestaurant($fromId);
+        if (!$rest) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Restoran topilmadi']); exit; }
+        $text = "⚙️ *Sozlamalar*\n\n"
+              . "🏪 Nomi: *{$rest['name']}*\n"
+              . "📍 Manzil: " . ($rest['address'] ?: '_kiritilmagan_') . "\n"
+              . "📞 Telefon: " . ($rest['phone'] ?: '_kiritilmagan_') . "\n";
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $text, 'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [
+                [['text' => '🏪 Nom o\'zgartir',   'callback_data' => 'set_name'],
+                 ['text' => '📞 Tel o\'zgartir',    'callback_data' => 'set_phone']],
+                [['text' => '📍 Manzil o\'zgartir','callback_data' => 'set_address']],
+                [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']],
+            ]],
+        ]);
+    }
+
+    elseif (in_array($data, ['set_name','set_phone','set_address'])) {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $prompts = [
+            'set_name'    => "🏪 Yangi restoran nomini yuboring:",
+            'set_phone'   => "📞 Yangi telefon raqamini yuboring:",
+            'set_address' => "📍 Yangi manzilni yuboring:",
+        ];
+        setSellerState($fromId, 'awaiting_'.$data, 0);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $prompts[$data],
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [[['text' => '❌ Bekor', 'callback_data' => 'state_cancel']]]],
+        ]);
+    }
+
+    // ── State bekor qilish ──
+    elseif ($data === 'state_cancel') {
+        clearSellerState($fromId);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Bekor qilindi']);
+        tg('editMessageText', [
+            'chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "🏪 *Sotuvchi Panel*\n\nNimani boshqarasiz?",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => roleInlineButtons('seller'),
+        ]);
     }
 
     // ── SOTUVCHI: statistika ──
