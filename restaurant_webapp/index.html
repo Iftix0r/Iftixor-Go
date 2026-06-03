@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Restoran Paneli</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+  <!-- Sarlavha -->
+  <header class="header">
+    <div class="header-info">
+      <div class="rest-name" id="restName">Restoran yuklanmoqda...</div>
+      <div class="rest-sub" id="restSub">Menejer paneli</div>
+    </div>
+  </header>
+
+  <!-- Sahifalar -->
+  <div id="page-orders" class="page active">
+    <div class="page-title">Buyurtmalar</div>
+    <div id="ordersList"></div>
+  </div>
+
+  <div id="page-products" class="page">
+    <div class="page-title-row">
+      <div class="page-title">Mahsulotlar</div>
+      <button class="btn-sm" onclick="showAddProductModal()">+ Qo'shish</button>
+    </div>
+    <div id="productsList"></div>
+  </div>
+
+  <div id="page-settings" class="page">
+    <div class="page-title">Sozlamalar</div>
+    <div class="settings-card">
+      <div class="stat-row">
+        <span>👁️ Ko'rishlar:</span>
+        <strong id="statViews">0</strong>
+      </div>
+      <div class="stat-row">
+        <span>🔥 Barcha buyurtmalar:</span>
+        <strong id="statOrders">0</strong>
+      </div>
+    </div>
+    <button class="btn btn-danger" onclick="closeApp()">Chiqish</button>
+  </div>
+
+  <!-- Modal: Maxsulot qo'shish/tahrirlash -->
+  <div id="productModal" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modalTitle">Yangi mahsulot</h3>
+      <input type="hidden" id="prodId">
+      <input type="text" id="prodName" placeholder="Nomi" class="input">
+      <textarea id="prodDesc" placeholder="Tavsifi" class="input"></textarea>
+      <input type="number" id="prodPrice" placeholder="Narxi (so'm)" class="input">
+      <input type="text" id="prodImage" placeholder="Rasm URL" class="input">
+      
+      <!-- Kategoriyani tanlash uchun -->
+      <select id="prodCategory" class="input">
+        <option value="">Kategoriya yuklanmoqda...</option>
+      </select>
+      
+      <label class="checkbox-row">
+        <input type="checkbox" id="prodAvailable" checked> Sotuvda mavjud
+      </label>
+      
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeProductModal()">Bekor qilish</button>
+        <button class="btn btn-primary" onclick="saveProduct()">Saqlash</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pastki menyu -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" id="navOrders" onclick="switchPage('orders')">
+      <span>📦</span> Buyurtmalar
+    </div>
+    <div class="nav-item" id="navProducts" onclick="switchPage('products')">
+      <span>🍔</span> Mahsulotlar
+    </div>
+    <div class="nav-item" id="navSettings" onclick="switchPage('settings')">
+      <span>⚙️</span> Sozlamalar
+    </div>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>

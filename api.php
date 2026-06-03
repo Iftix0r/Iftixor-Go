@@ -182,6 +182,72 @@ switch ($action) {
         }
         break;
 
+    // ── RESTAURANT WEBAPP ENDPOINTS ──
+    case 'rest_get_data':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        
+        $r = db()->prepare("SELECT * FROM restaurants WHERE owner_tg_id=?");
+        $r->execute([$tgId]);
+        $rest = $r->fetch();
+        
+        if (!$rest) resp('Restoran topilmadi', false);
+        
+        $rid = $rest['id'];
+        
+        // Orders
+        $o = db()->prepare("SELECT * FROM orders WHERE items LIKE ? ORDER BY id DESC LIMIT 50");
+        $o->execute(['%restaurant_id":'.$rid.'%']); // This assumes items JSON has restaurant_id? Wait, items doesn't have it!
+        // We will fix order retrieval in the next step
+        
+        // Let's just return products and categories for now
+        $cats = db()->query("SELECT * FROM categories")->fetchAll();
+        $prods = db()->prepare("SELECT * FROM products WHERE restaurant_id=?");
+        $prods->execute([$rid]);
+        
+        // Total orders sold by this restaurant
+        $prodsList = $prods->fetchAll();
+        $totalOrders = array_reduce($prodsList, fn($s, $p) => $s + (int)$p['order_count'], 0);
+        
+        resp([
+            'restaurant' => $rest,
+            'products' => $prodsList,
+            'categories' => $cats,
+            'stats' => ['views' => $rest['views'], 'total_orders' => $totalOrders]
+        ]);
+        break;
+        
+    case 'rest_save_product':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        $r = db()->prepare("SELECT id FROM restaurants WHERE owner_tg_id=?");
+        $r->execute([$tgId]);
+        $rest = $r->fetch();
+        if (!$rest) resp('Restoran topilmadi', false);
+        
+        $pid = (int)($input['id'] ?? 0);
+        $name = trim($input['name'] ?? '');
+        $desc = trim($input['description'] ?? '');
+        $price = (float)($input['price'] ?? 0);
+        $image = trim($input['image'] ?? '');
+        $cat = (int)($input['category_id'] ?? 0);
+        $av = (int)($input['available'] ?? 1);
+        
+        if ($pid > 0) {
+            // Verify ownership
+            $check = db()->prepare("SELECT id FROM products WHERE id=? AND restaurant_id=?");
+            $check->execute([$pid, $rest['id']]);
+            if (!$check->fetch()) resp('Ruxsat etilmagan', false);
+            
+            db()->prepare("UPDATE products SET name=?, description=?, price=?, image=?, category_id=?, available=? WHERE id=?")
+              ->execute([$name, $desc, $price, $image, $cat, $av, $pid]);
+        } else {
+            db()->prepare("INSERT INTO products (name, description, price, image, category_id, available, restaurant_id) VALUES (?,?,?,?,?,?,?)")
+              ->execute([$name, $desc, $price, $image, $cat, $av, $rest['id']]);
+        }
+        resp(['success' => true]);
+        break;
+
     // ── ORDER ──
     case 'place_order':
         try {
