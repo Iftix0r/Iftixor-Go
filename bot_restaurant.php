@@ -177,14 +177,15 @@ if (!$rest) {
     
     if ($state === 'create_name') {
         setState($chatId, 'create_phone', ['name' => $text]);
-        // Contact request must use a ReplyKeyboardMarkup, not inline
-        $contactKeyboard = [
-            ['text' => "📞 Telefon raqamini yuboring", 'request_contact' => true]
+        // After phone, ask for location instead of plain text
+        setState($chatId, 'create_address', $tempData);
+        $locationKeyboard = [
+            ['text' => "📍 Manzilni yuboring", 'request_location' => true]
         ];
         tg_rest('sendMessage', [
             'chat_id' => $chatId,
-            'text' => "📞 Do'kon telefon raqamini yuboring:",
-            'reply_markup' => ['keyboard' => [$contactKeyboard], 'resize_keyboard' => true, 'one_time_keyboard' => true]
+            'text' => "📍 Do'kon manzilini yuboring (lokatsiya):",
+            'reply_markup' => ['keyboard' => [$locationKeyboard], 'resize_keyboard' => true, 'one_time_keyboard' => true]
         ]);
         exit;
 
@@ -194,36 +195,57 @@ if (!$rest) {
             // Agar foydalanuvchi kontakt yuborgan bo'lsa, telefon raqamini olinadi
             if (isset($msg['contact']) && $msg['contact']['phone_number']) {
                 $tempData['phone'] = $msg['contact']['phone_number'];
+                // So'rov: joylashuv yuborish
                 setState($chatId, 'create_address', $tempData);
-                tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📍 Do'kon manzilini kiriting:"]);
+                $locationKeyboard = [
+                    ['text' => "📍 Manzilni yuboring", 'request_location' => true]
+                ];
+                tg_rest('sendMessage', [
+                    'chat_id' => $chatId,
+                    'text' => "📍 Do'kon manzilini yuboring (lokatsiya):",
+                    'reply_markup' => ['keyboard' => [$locationKeyboard], 'resize_keyboard' => true, 'one_time_keyboard' => true]
+                ]);
                 exit;
             }
             // Aks holda, matnli telefonni qabul qilamiz
             $tempData['phone'] = $text;
+            // So'rov: joylashuv yuborish
             setState($chatId, 'create_address', $tempData);
-            tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📍 Do'kon manzilini kiriting:"]);
+            $locationKeyboard = [
+                ['text' => "📍 Manzilni yuboring", 'request_location' => true]
+            ];
+            tg_rest('sendMessage', [
+                'chat_id' => $chatId,
+                'text' => "📍 Do'kon manzilini yuboring (lokatsiya):",
+                'reply_markup' => ['keyboard' => [$locationKeyboard], 'resize_keyboard' => true, 'one_time_keyboard' => true]
+            ]);
             exit;
         }  
     if ($state === 'create_address') {
-        $name = $tempData['name'] ?? 'Nomsiz';
-        $phone = $tempData['phone'] ?? '';
-        $address = $text;
-        
-        db()->prepare("INSERT INTO restaurants (name, phone, address, owner_tg_id) VALUES (?,?,?,?)")
-          ->execute([$name, $phone, $address, $chatId]);
-          
-        setState($chatId, '');
-        $newRest = db()->prepare("SELECT * FROM restaurants WHERE owner_tg_id=?");
-        $newRest->execute([$chatId]);
-        $rData = $newRest->fetch();
-        
-        tg_rest('sendMessage', [
-            'chat_id' => $chatId, 
-            'text' => "✅ Do'koningiz muvaffaqiyatli yaratildi!",
-            'reply_markup' => mainInlineKeyboard($rData)
-        ]);
-        exit;
-    }
+            // Agar foydalanuvchi lokatsiya yuborgan bo'lsa
+            if (isset($msg['location'])) {
+                $address = $msg['location']['latitude'] . "," . $msg['location']['longitude'];
+            } else {
+                $address = $text; // matnli manzil
+            }
+            $name = $tempData['name'] ?? 'Nomsiz';
+            $phone = $tempData['phone'] ?? '';
+
+            db()->prepare("INSERT INTO restaurants (name, phone, address, owner_tg_id) VALUES (?,?,?,?)")
+              ->execute([$name, $phone, $address, $chatId]);
+
+            setState($chatId, '');
+            $newRest = db()->prepare("SELECT * FROM restaurants WHERE owner_tg_id=?");
+            $newRest->execute([$chatId]);
+            $rData = $newRest->fetch();
+
+            tg_rest('sendMessage', [
+                'chat_id' => $chatId,
+                'text' => "✅ Do'koningiz muvaffaqiyatli yaratildi!",
+                'reply_markup' => mainInlineKeyboard($rData)
+            ]);
+            exit;
+        }
 } else {
     // RESTAURANT EXISTS
     if ($text === '📊 Hisobot va Sozlamalar') {
