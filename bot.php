@@ -778,7 +778,7 @@ if ($userRole === 'seller' && $text && !str_starts_with($text, '/')) {
     }
 }
 
-if ($text === '/start') {
+if (str_starts_with($text, '/start')) {
     $welcome = "👋 Assalomu alaykum, *{$firstName}*!\n\n";
 
     if ($userRole === 'seller') {
