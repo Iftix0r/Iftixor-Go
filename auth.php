@@ -49,18 +49,34 @@ function validateInitData(?string $initData): ?array {
     $secretKey  = hash_hmac('sha256', BOT_TOKEN, 'WebAppData', true);
     $calculated = hash_hmac('sha256', $dataCheckString, $secretKey);
 
-    if (!hash_equals($calculated, $receivedHash)) {
-        // Oxirgi urinish: decode qilmasdan tekshir (ba'zi clientlar)
+    $isValid = false;
+    
+    if (hash_equals($calculated, $receivedHash)) {
+        $isValid = true;
+    } else {
+        // Try without decoding (some clients)
         $lines2 = [];
         foreach ($parsed as $key => $value) {
             $lines2[] = $key . '=' . $value;
         }
         $dc2 = implode("\n", $lines2);
         $calc2 = hash_hmac('sha256', $dc2, $secretKey);
-        if (!hash_equals($calc2, $receivedHash)) {
-            return null;
+        if (hash_equals($calc2, $receivedHash)) $isValid = true;
+    }
+    
+    // Agar asosiy bot bilan o'xshamasa, REST_BOT_TOKEN bilan tekshiramiz
+    if (!$isValid && defined('REST_BOT_TOKEN')) {
+        $secretKeyRest  = hash_hmac('sha256', REST_BOT_TOKEN, 'WebAppData', true);
+        $calculatedRest = hash_hmac('sha256', $dataCheckString, $secretKeyRest);
+        if (hash_equals($calculatedRest, $receivedHash)) {
+            $isValid = true;
+        } else {
+            $calc2Rest = hash_hmac('sha256', $dc2 ?? '', $secretKeyRest);
+            if (hash_equals($calc2Rest, $receivedHash)) $isValid = true;
         }
     }
+    
+    if (!$isValid) return null;
 
     // auth_date tekshiruvi: 48 soat (2 kun) — 24 soat ba'zan muammo)
     if (isset($parsed['auth_date'])) {
