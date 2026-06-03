@@ -1,25 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 :root {
-  --bg: #f0f8ff;
+  --bg: #eef5fc;
   --card: #ffffff;
   --primary: #1045a0;
   --primary-dark: #0a2a5e;
-  --primary-bg: #e8f4fd;
+  --primary-mid: #1a6fc4;
+  --primary-bg: #e4f0fb;
+  --accent-green: #4dd882;
   --text: #0a1a3a;
   --subtext: #5a7090;
-  --border: rgba(16,69,160,0.12);
+  --border: rgba(16,69,160,0.11);
   --green: #1e8c46;
-  --red: #ff3b30;
+  --red: #ef4444;
+  --gold: #f59e0b;
   --nav-h: 82px;
   --header-h: 60px;
-  --radius: 16px;
-  --radius-sm: 12px;
-  --shadow: 0 1px 0 rgba(16,69,160,0.06), 0 4px 20px rgba(16,69,160,0.08);
+  --radius: 18px;
+  --radius-sm: 13px;
+  --radius-xs: 8px;
+  --shadow: 0 2px 0 rgba(16,69,160,0.04), 0 6px 24px rgba(16,69,160,0.09);
+  --shadow-sm: 0 1px 4px rgba(16,69,160,0.06), 0 2px 10px rgba(16,69,160,0.06);
+  --glass: rgba(255,255,255,0.88);
+  --blur: saturate(180%) blur(20px);
 }
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
   overflow-x: hidden;
@@ -48,10 +57,11 @@ body {
 .header {
   position: sticky; top: 0; z-index: 100;
   height: var(--header-h);
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid rgba(16,69,160,0.08);
+  box-shadow: 0 1px 0 rgba(16,69,160,0.06);
   display: flex; align-items: center;
   justify-content: space-between;
   padding: 0 16px;
@@ -178,9 +188,9 @@ body {
   background: var(--card);
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform .12s;
+  transition: transform .15s, box-shadow .15s;
   -webkit-user-select: none; user-select: none;
   display: flex; flex-direction: column;
 }
@@ -434,10 +444,11 @@ body {
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   height: var(--nav-h);
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-top: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 1px solid rgba(16,69,160,0.08);
+  box-shadow: 0 -4px 20px rgba(16,69,160,0.06);
   display: flex;
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 100;
@@ -1229,4 +1240,183 @@ body {
 .taxi-route-row {
   display: flex; align-items: center; gap: 12px;
   font-size: 15px; font-weight: 500;
+}
+
+/* ══════════════════════════════════════════
+   PROFESSIONAL POLISH — Iftixor Go Design
+   ══════════════════════════════════════════ */
+
+/* ── Body micro-detail ── */
+body { -webkit-font-smoothing: antialiased; }
+
+/* ── Service tiles professional ── */
+.service-tile {
+  position: relative; overflow: hidden;
+}
+.service-tile::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(16,69,160,0.04) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity .2s;
+  border-radius: var(--radius);
+}
+.service-tile:hover::before { opacity: 1; }
+.service-tile-icon {
+  width: 64px; height: 64px;
+  background: var(--primary-bg);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 4px 14px rgba(16,69,160,0.12);
+  transition: transform .2s;
+}
+.service-tile:hover .service-tile-icon { transform: scale(1.06); }
+.service-tile-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.service-tile-sub  { font-size: 11.5px; color: var(--subtext); margin-top: 2px; }
+
+/* ── Profile header refined ── */
+.profile-header {
+  background: linear-gradient(150deg, var(--primary-dark) 0%, #0e3d8a 35%, var(--primary-mid) 100%);
+}
+.profile-photo {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.22), 0 0 0 4px rgba(255,255,255,0.18);
+}
+.profile-stats {
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.18);
+}
+.stat-val { letter-spacing: -0.5px; }
+
+/* ── Section cards refined ── */
+.section-card {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.section-title {
+  font-size: 11px; font-weight: 800; color: var(--subtext);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  padding: 20px 16px 8px;
+}
+
+/* ── Cart button refined ── */
+.cart-btn {
+  box-shadow: 0 2px 12px rgba(16,69,160,0.28);
+  transition: box-shadow .15s, background .15s;
+}
+.cart-btn:hover { box-shadow: 0 4px 18px rgba(16,69,160,0.38); }
+
+/* ── Buttons refined ── */
+.btn-primary {
+  letter-spacing: -0.1px;
+  box-shadow: 0 4px 14px rgba(16,69,160,0.22);
+  transition: background .15s, box-shadow .15s, transform .1s;
+}
+.btn-primary:hover { box-shadow: 0 6px 20px rgba(16,69,160,0.32); }
+
+/* ── Product card hover ── */
+.product-card:hover {
+  box-shadow: 0 4px 20px rgba(16,69,160,0.14);
+  transform: translateY(-2px);
+}
+
+/* ── Category tabs refined ── */
+.cat-tab {
+  transition: all .18s;
+  font-weight: 600;
+  border-radius: 22px;
+}
+.cat-tab.active {
+  box-shadow: 0 2px 10px rgba(16,69,160,0.22);
+}
+
+/* ── Search input refined ── */
+.search-input {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  transition: border-color .15s, box-shadow .15s;
+}
+.search-input:focus {
+  border-color: var(--primary-mid);
+  box-shadow: 0 0 0 3px rgba(26,111,196,0.12), var(--shadow-sm);
+}
+
+/* ── How it works badge ── */
+.hero-badge { font-weight: 700; letter-spacing: 0.3px; }
+
+/* ── Cart item subtle ── */
+.cart-item {
+  border: 1.5px solid var(--border);
+  transition: box-shadow .15s;
+}
+.cart-item:hover { box-shadow: var(--shadow); }
+
+/* ── Modal drag handle ── */
+.modal-drag { background: rgba(16,69,160,0.15); }
+
+/* ── Toast refined ── */
+.toast {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  font-weight: 500;
+}
+
+/* ── Taxi section ── */
+.taxi-route-card {
+  border: 1.5px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .15s;
+}
+.taxi-route-card:focus-within {
+  box-shadow: 0 0 0 3px rgba(26,111,196,0.1), var(--shadow);
+  border-color: var(--primary-mid);
+}
+.taxi-car-types { gap: 10px; }
+
+/* ── Profile taxi header ── */
+.profile-header-taxi {
+  background: linear-gradient(150deg, #0a2a5e 0%, #1045a0 50%, #1a6fc4 100%);
+}
+.profile-service-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #fff; font-size: 12px; font-weight: 700;
+  padding: 4px 12px; border-radius: 20px;
+  margin-top: 6px; letter-spacing: 0.3px;
+}
+
+/* ── Order history refined ── */
+.order-hist-item {
+  border: 1.5px solid var(--border);
+  transition: border-color .15s, box-shadow .15s;
+}
+.order-hist-item:hover { border-color: rgba(16,69,160,0.22); box-shadow: var(--shadow); }
+.order-hist-total { letter-spacing: -0.3px; }
+
+/* ── Guest warning refined ── */
+.guest-warning {
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius-sm);
+  color: #92650a;
+  font-size: 13px; font-weight: 500;
+}
+
+/* ── Empty state ── */
+.empty-cart svg, .orders-empty svg { color: var(--primary); }
+
+/* ── Success page ── */
+.success-total { letter-spacing: -0.5px; }
+
+/* ── Inline input focus ── */
+.inline-input:focus { color: var(--text); }
+
+/* ── Divider refined ── */
+.divider { background: var(--border); }
+
+/* ── Page fade ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

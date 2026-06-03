@@ -511,14 +511,14 @@ function makeProductCard(p) {
     img.onerror = function() {
       const ph = document.createElement('div');
       ph.className = 'product-thumb-placeholder';
-      ph.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg>';
+      ph.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#1045a0" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#1045a0" stroke-width="1.5"/></svg>';
       this.replaceWith(ph);
     };
     card.appendChild(img);
   } else {
     const ph = document.createElement('div');
     ph.className = 'product-thumb-placeholder';
-    ph.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg>';
+    ph.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#1045a0" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#1045a0" stroke-width="1.5"/></svg>';
     card.appendChild(ph);
   }
 
@@ -600,7 +600,7 @@ function makeProductCard(p) {
 }
 
 function thumbPlaceholder() {
-  return '<div class="product-thumb-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg></div>';
+  return '<div class="product-thumb-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#1045a0" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#1045a0" stroke-width="1.5"/></svg></div>';
 }
 
 function esc(s) {
@@ -831,7 +831,7 @@ function renderCart() {
     cart.map(i => {
       const imgHtml = i.image
         ? `<img src="${i.image}" class="cart-item-img-photo" alt="" onerror="this.style.display='none'">`
-        : `<div class="cart-item-img"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg></div>`;
+        : `<div class="cart-item-img"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#1045a0" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#1045a0" stroke-width="1.5"/></svg></div>`;
       return `
       <div class="cart-item">
         ${imgHtml}
@@ -1080,7 +1080,7 @@ async function loadProfile() {
   if (u.address) { const pa = $('profileAddress'); if (pa) pa.value = u.address; }
   const photo = u.photo_url || tgUser?.photo_url || '';
   const pPhoto = $('profilePhoto');
-  if (pPhoto) pPhoto.src = photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name || 'U')}&background=ff6b35&color=fff&size=160&bold=true`;
+  if (pPhoto) pPhoto.src = photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name || 'U')}&background=1045a0&color=fff&size=160&bold=true`;
 }
 
 async function saveProfile() {

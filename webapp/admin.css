@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
 :root {
   --bg: #0a1020;
   --bg-card: #101828;
@@ -24,12 +26,14 @@
   --shadow: 0 8px 32px rgba(0,0,0,0.5);
   --shadow-sm: 0 2px 12px rgba(0,0,0,0.3);
   --sidebar-w: 240px;
+  --accent-green: #4dd882;
+  --nav-active-color: #90cef4;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
   display: flex;
@@ -41,7 +45,7 @@ body {
 /* ══ SIDEBAR ══ */
 .sidebar {
   width: var(--sidebar-w);
-  background: var(--bg-sidebar);
+  background: linear-gradient(180deg, #060c18 0%, var(--bg-sidebar) 100%);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   position: fixed; top:0; left:0; bottom:0;
@@ -786,3 +790,144 @@ body {
   background: var(--bg); color: var(--text); font-size: 14px;
 }
 .admin-login-form button { width: 100%; }
+
+/* ══════════════════════════════════════════
+   ADMIN PROFESSIONAL POLISH — Iftixor Go
+   ══════════════════════════════════════════ */
+
+/* ── Body ── */
+body { -webkit-font-smoothing: antialiased; }
+
+/* ── Sidebar brand refined ── */
+.sidebar-brand {
+  background: linear-gradient(135deg, rgba(26,111,196,0.15) 0%, transparent 100%);
+}
+.brand-name {
+  background: linear-gradient(135deg, #e0eaf8 0%, #90cef4 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+}
+
+/* ── Sidebar nav links ── */
+.nav-link {
+  border-radius: 10px;
+  letter-spacing: -0.1px;
+}
+.nav-link:hover { background: rgba(26,111,196,0.08); color: #c8e0f8; }
+
+/* ── Stat cards refined ── */
+.stat-card {
+  transition: transform .18s, box-shadow .18s, border-color .18s;
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(26,111,196,0.25);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.35);
+}
+.stat-number { letter-spacing: -0.8px; }
+
+/* ── Card header ── */
+.card-header h2 {
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Order rows ── */
+.order-row {
+  border-radius: var(--radius-sm);
+  transition: transform .18s, background .18s, border-color .18s, box-shadow .18s;
+}
+.order-row:hover {
+  background: rgba(26,111,196,0.06);
+  border-color: rgba(26,111,196,0.15);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+  transform: translateY(-1px);
+}
+
+/* ── Page header title ── */
+.page-header h1 span { color: #4dd882; }
+
+/* ── Btn primary glow ── */
+.btn-primary {
+  box-shadow: 0 4px 14px rgba(26,111,196,0.3);
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(26,111,196,0.45);
+}
+
+/* ── Status select ── */
+.status-select {
+  border-radius: var(--radius-xs);
+  transition: border-color .15s, box-shadow .15s;
+}
+.status-select:focus {
+  box-shadow: 0 0 0 3px rgba(26,111,196,0.15);
+}
+
+/* ── Mobile header ── */
+.mobile-header {
+  background: linear-gradient(135deg, #060c18 0%, var(--bg-sidebar) 100%);
+}
+.mobile-title {
+  background: linear-gradient(135deg, #e0eaf8 0%, #90cef4 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+}
+
+/* ── User card ── */
+.user-card {
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.user-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+/* ── Product admin card ── */
+.product-admin-card {
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.product-admin-card:hover {
+  border-color: rgba(26,111,196,0.25);
+}
+
+/* ── Input focus refined ── */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.filter-row input:focus,
+.filter-row select:focus {
+  box-shadow: 0 0 0 3px rgba(26,111,196,0.14);
+}
+
+/* ── Modal refined ── */
+.modal-box {
+  border-radius: var(--radius);
+}
+
+/* ── Admin toast refined ── */
+.admin-toast {
+  border-radius: var(--radius-sm);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(26,111,196,0.2); border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(26,111,196,0.35); }
+
+/* ── Shimmer ── */
+.stat-loading {
+  background: linear-gradient(90deg,
+    rgba(26,111,196,0.06) 25%,
+    rgba(26,111,196,0.15) 50%,
+    rgba(26,111,196,0.06) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}

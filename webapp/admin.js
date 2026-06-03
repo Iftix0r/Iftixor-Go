@@ -1118,7 +1118,7 @@ function fmt(n) {
 }
 function fmtFull(n) { return Number(n).toLocaleString('uz-UZ') + " so'm"; }
 function setText(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
-function avatarUrl(name) { return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name||'?') + '&background=ff6b35&color=fff&size=80&bold=true'; }
+function avatarUrl(name) { return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name||'?') + '&background=1045a0&color=fff&size=80&bold=true'; }
 function emptyState(msg, icon) { return '<div class="empty-state">' + icon + '<p>' + msg + '</p></div>'; }
 
 function adminToast(msg, type) {
