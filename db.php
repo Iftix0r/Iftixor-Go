@@ -135,6 +135,19 @@ try {
 } catch (Exception $e) { /* ignore */ }
 
 try {
+    db()->exec("
+        CREATE TABLE IF NOT EXISTS restaurants (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            address TEXT,
+            phone VARCHAR(50),
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+} catch (Exception $e) { /* ignore */ }
+
+try {
     $pcols = db()->query("SHOW COLUMNS FROM products LIKE 'restaurant_id'")->fetchAll();
     if (empty($pcols)) {
         db()->exec("ALTER TABLE products ADD COLUMN restaurant_id INT DEFAULT NULL");
