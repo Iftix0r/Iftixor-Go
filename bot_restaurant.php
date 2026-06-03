@@ -40,9 +40,9 @@ if (isset($update['message'])) {
     ]);
 
     if ($text === '/start') {
-        $welcome = "👋 Assalomu alaykum, restoranchi!\n\n"
-                 . "🏪 *Iftixor Go Restaurant* tizimiga xush kelibsiz.\n"
-                 . "Bu yerda siz o'z restoraningiz mahsulotlarini va buyurtmalarini boshqarishingiz mumkin.\n\n"
+        $welcome = "👋 Assalomu alaykum, hurmatli sotuvchi!\n\n"
+                 . "🏪 *Iftixor Go Sotuvchi* tizimiga xush kelibsiz.\n"
+                 . "Bu yerda siz o'z do'koningiz mahsulotlarini va buyurtmalarini boshqarishingiz mumkin.\n\n"
                  . "👇 Quyidagi tugmani bosib panelga kiring:";
                  
         tg_rest('sendMessage', [
@@ -50,7 +50,7 @@ if (isset($update['message'])) {
             'text'         => $welcome,
             'parse_mode'   => 'Markdown',
             'reply_markup' => ['inline_keyboard' => [[
-                ['text' => '⚙️ Restoran Paneli', 'web_app' => ['url' => REST_WEBAPP_URL]]
+                ['text' => '⚙️ Sotuvchi Paneli', 'web_app' => ['url' => REST_WEBAPP_URL]]
             ]]]
         ]);
     }

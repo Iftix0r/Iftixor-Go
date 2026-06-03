@@ -38,7 +38,7 @@ async function loadData() {
   
   if (res.needs_creation) {
     switchPage('create');
-    $('restName').textContent = 'Yangi restoran';
+    $('restName').textContent = 'Yangi sotuvchi';
     $('restSub').textContent = 'Ro\'yxatdan o\'tish';
     document.querySelector('.bottom-nav').style.display = 'none';
     return;
