@@ -109,7 +109,7 @@ function loadDashboard() {
     }
     if (!res.success) {
       if (res.data === 'Unauthorized') {
-        showAccessDenied('Sizda admin huquqi yo\'q. ADMIN_IDS ro\'yxatiga Telegram ID ni qo\'shing.');
+        showAccessDenied('Sizga admin huquqi berilmagan. Iltimos, ma\'mur bilan bog\'laning.');
       }
       return;
     }
