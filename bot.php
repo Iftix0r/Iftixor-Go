@@ -31,13 +31,19 @@ function mainKeyboard(bool $hasPhone, string $role = 'user'): array {
     $rows[] = [['text' => '📍 Joylashuvimni yuborish', 'request_location' => true]];
     $rows[] = [['text' => '📋 Buyurtmalarim'], ['text' => '👤 Profil']];
     $rows[] = [['text' => '📞 Bog\'lanish'], ['text' => 'ℹ️ Haqida']];
+    return ['keyboard' => $rows, 'resize_keyboard' => true];
+}
+
+// Role-ga qarab inline tugmalar
+function roleInlineButtons(string $role): array {
+    $buttons = [[['text' => '🛒 Buyurtma berish', 'web_app' => ['url' => WEBAPP_URL]]]];
     if ($role === 'seller') {
-        $rows[] = [['text' => '🏪 Mening Restoranim', 'web_app' => ['url' => WEBAPP_URL . '../webapp/seller.html']]];
+        $buttons[] = [['text' => '🏪 Mening Restoranim', 'web_app' => ['url' => WEBAPP_URL . 'seller.html']]];
     }
     if ($role === 'admin') {
-        $rows[] = [['text' => '⚙️ Admin Panel', 'web_app' => ['url' => WEBAPP_URL . '../webapp/admin.html']]];
+        $buttons[] = [['text' => '⚙️ Admin Panel', 'web_app' => ['url' => WEBAPP_URL . 'admin.html']]];
     }
-    return ['keyboard' => $rows, 'resize_keyboard' => true];
+    return ['inline_keyboard' => $buttons];
 }
 
 function getUserRole(int $id): string {
@@ -216,21 +222,19 @@ if ($text === '/start') {
     }
     $welcome .= "Quyidagi tugmani bosib buyurtma bering 👇";
 
+    // Inline tugmalar (web app)
     tg('sendMessage', [
         'chat_id'      => $chatId,
         'text'         => $welcome,
         'parse_mode'   => 'Markdown',
-        'reply_markup' => ['inline_keyboard' => [[
-            ['text' => '🛒 Buyurtma berish', 'web_app' => ['url' => WEBAPP_URL]]
-        ]]]
+        'reply_markup' => roleInlineButtons($userRole),
     ]);
 
+    // Reply keyboard (kontakt/joylashuv)
     tg('sendMessage', [
         'chat_id'      => $chatId,
-        'text'         => $hasPhone
-            ? "📍 Joylashuvingizni yangilash uchun:"
-            : "📱 Telefon va joylashuvni yuboring:",
-        'reply_markup' => mainKeyboard($hasPhone, $userRole)
+        'text'         => $hasPhone ? "📍 Joylashuvingizni yangilash uchun:" : "📱 Telefon va joylashuvni yuboring:",
+        'reply_markup' => mainKeyboard($hasPhone),
     ]);
 }
 
@@ -241,10 +245,10 @@ elseif ($text === '/admin') {
     }
     db()->prepare("UPDATE users SET role='admin' WHERE id=?")->execute([$chatId]);
     tg('sendMessage', [
-        'chat_id' => $chatId,
-        'text' => "✅ Siz endi *Admin* sifatida faolsiz!\n\n⚙️ *Admin Panel* tugmasini bosing.",
-        'parse_mode' => 'Markdown',
-        'reply_markup' => mainKeyboard($hasPhone, 'admin')
+        'chat_id'      => $chatId,
+        'text'         => "✅ Siz endi *Admin* sifatida faolsiz!",
+        'parse_mode'   => 'Markdown',
+        'reply_markup' => roleInlineButtons('admin'),
     ]);
 }
 
@@ -253,15 +257,15 @@ elseif ($text === '/seller') {
     $s->execute([$chatId]);
     $rest = $s->fetch();
     if (!$rest) {
-        sendMsg($chatId, "❌ Sizda restoran yo'q.\n\nRestoran yaratish uchun buyurtma berish sahifasidan *Sotuvchi* bo'lib ro'yxatdan o'ting.");
+        sendMsg($chatId, "❌ Sizda restoran yo'q.\n\nRestoran yaratish uchun admin bilan bog'laning.");
         exit;
     }
     db()->prepare("UPDATE users SET role='seller', restaurant_id=? WHERE id=?")->execute([$rest['id'], $chatId]);
     tg('sendMessage', [
-        'chat_id' => $chatId,
-        'text' => "✅ Siz endi *Sotuvchi* sifatida faolsiz!\n\n🏪 *Mening Restoranim* tugmasini bosing.",
-        'parse_mode' => 'Markdown',
-        'reply_markup' => mainKeyboard($hasPhone, 'seller')
+        'chat_id'      => $chatId,
+        'text'         => "✅ Siz endi *Sotuvchi* sifatida faolsiz!",
+        'parse_mode'   => 'Markdown',
+        'reply_markup' => roleInlineButtons('seller'),
     ]);
 }
 
