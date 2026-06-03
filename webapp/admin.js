@@ -248,7 +248,7 @@ function renderTaxiRow(r) {
       '<div class="taxi-row-meta">' + esc(statusText) + ' · ' + esc(date) + '</div>' +
       '<div class="taxi-row-address">' + esc(r.from_address || '—') + ' → ' + esc(r.to_address || '—') + '</div>' +
     '</div>' +
-    '<div class="taxi-row-right"><span class="badge badge-' + (r.status === 'cancelled' ? 'cancelled' : r.status === 'completed' ? 'success' : 'blue') + '">' + esc(statusText) + '</span></div>' +
+    '<div class="taxi-row-right"><span class="badge badge-' + (r.status === 'completed' ? 'success' : r.status) + '">' + esc(statusText) + '</span></div>' +
   '</div>';
 }
 

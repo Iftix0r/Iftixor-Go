@@ -298,11 +298,10 @@ switch ($action) {
         $sql = "SELECT o.*, u.first_name, u.last_name, u.username, u.photo_url, u.phone as user_phone
                 FROM orders o LEFT JOIN users u ON o.user_id=u.id";
         if ($status) {
-            $s = db()->prepare($sql." WHERE o.status=? ORDER BY o.created_at DESC LIMIT ?");
-            $s->execute([$status, $limit]);
+            $s = db()->prepare($sql." WHERE o.status=? ORDER BY o.created_at DESC LIMIT $limit");
+            $s->execute([$status]);
         } else {
-            $s = db()->prepare($sql." ORDER BY o.created_at DESC LIMIT ?");
-            $s->execute([$limit]);
+            $s = db()->query($sql." ORDER BY o.created_at DESC LIMIT $limit");
         }
         $list = $s->fetchAll();
         foreach ($list as &$o) $o['items'] = json_decode($o['items'], true);

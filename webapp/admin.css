@@ -711,6 +711,8 @@ body {
   .products-grid { grid-template-columns: repeat(2,1fr); }
   .order-row { flex-wrap: wrap; }
   .order-ctrl { width: 100%; }
+  .taxi-row { flex-wrap: wrap; }
+  .taxi-row-right { width: 100%; justify-content: flex-start; margin-top: 4px; }
   .status-select { width: 100%; }
   .filter-row input { min-width: 140px; }
   .modal-box { max-width: 100%; }
