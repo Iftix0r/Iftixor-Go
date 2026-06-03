@@ -1,63 +1,100 @@
 <?php
 require_once 'config.php';
 
-/** initData ni qatorlarga ajratish (parse_str ba'zi serverlarda xato beradi) */
-function parseInitData(string $initData): array {
-    $parsed = [];
-    foreach (explode('&', $initData) as $chunk) {
+/**
+ * initData stringini key=value juftlariga ajratadi.
+ * parse_str() ba'zi serverlarda dot va boshqa belgilarni buzadi —
+ * shuning uchun qo'lda parse qilamiz.
+ */
+function parseInitData(string $raw): array {
+    $result = [];
+    foreach (explode('&', $raw) as $chunk) {
         if ($chunk === '') continue;
         $pos = strpos($chunk, '=');
         if ($pos === false) continue;
-        $parsed[substr($chunk, 0, $pos)] = substr($chunk, $pos + 1);
+        $key = substr($chunk, 0, $pos);
+        $val = substr($chunk, $pos + 1);
+        $result[$key] = $val;   // URL-encoded holda saqlaymiz, keyin decode
     }
-    return $parsed;
+    return $result;
 }
 
-/** Telegram Mini App initData tekshiruvi */
+/**
+ * Telegram Web App initData ni kriptografik tekshiradi.
+ * Muvaffaqiyatda user massivini, muvaffaqiyatsizda null qaytaradi.
+ */
 function validateInitData(?string $initData): ?array {
-    if (!$initData || !str_contains($initData, 'hash=')) return null;
+    if (!$initData) return null;
+
+    // hash= mavjudligini tekshirish (PHP 7 mos)
+    if (strpos($initData, 'hash=') === false) return null;
 
     $parsed = parseInitData($initData);
     if (empty($parsed['hash'])) return null;
 
-    $hash = $parsed['hash'];
+    $receivedHash = strtolower(urldecode($parsed['hash']));
     unset($parsed['hash']);
 
+    // Telegram talabi: kalitlar alifbo tartibida saralanadi
     ksort($parsed);
+
     $lines = [];
     foreach ($parsed as $key => $value) {
-        $lines[] = $key . '=' . rawurldecode($value);
+        // URL-encoded qiymatni decode qilamiz
+        $lines[] = $key . '=' . urldecode($value);
     }
     $dataCheckString = implode("\n", $lines);
 
-    $secretKey = hash_hmac('sha256', BOT_TOKEN, 'WebAppData', true);
+    // HMAC hisoblash
+    $secretKey  = hash_hmac('sha256', BOT_TOKEN, 'WebAppData', true);
     $calculated = hash_hmac('sha256', $dataCheckString, $secretKey);
 
-    if (!hash_equals(strtolower($calculated), strtolower($hash))) {
-        return null;
+    if (!hash_equals($calculated, $receivedHash)) {
+        // Oxirgi urinish: decode qilmasdan tekshir (ba'zi clientlar)
+        $lines2 = [];
+        foreach ($parsed as $key => $value) {
+            $lines2[] = $key . '=' . $value;
+        }
+        $dc2 = implode("\n", $lines2);
+        $calc2 = hash_hmac('sha256', $dc2, $secretKey);
+        if (!hash_equals($calc2, $receivedHash)) {
+            return null;
+        }
     }
 
-    if (isset($parsed['auth_date']) && (time() - (int)$parsed['auth_date']) > 86400) {
-        return null;
+    // auth_date tekshiruvi: 48 soat (2 kun) — 24 soat ba'zan muammo)
+    if (isset($parsed['auth_date'])) {
+        $age = time() - (int)urldecode($parsed['auth_date']);
+        if ($age > 172800) return null; // 48 soat
     }
 
-    $user = json_decode(rawurldecode($parsed['user'] ?? ''), true);
-    return (is_array($user) && !empty($user['id'])) ? $user : null;
+    $userJson = urldecode($parsed['user'] ?? '');
+    $user = $userJson ? json_decode($userJson, true) : null;
+    if (!is_array($user) || empty($user['id'])) return null;
+
+    return $user;
 }
 
 function getInitDataFromRequest(): ?string {
+    // 1. HTTP Header — app.js har doim shu orqali yuboradi
     $h = $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '';
-    if ($h !== '') return $h;
+    if ($h !== '') {
+        // Nginx/Apache ba'zan headerlarni decode qiladi — ikkita decode xavfli emas
+        return $h;
+    }
 
+    // 2. JSON body (POST da init_data field)
     global $input;
     if (!empty($input['init_data']) && is_string($input['init_data'])) {
         return $input['init_data'];
     }
 
+    // 3. GET parametr
     if (!empty($_GET['init_data']) && is_string($_GET['init_data'])) {
-        return $_GET['init_data'];
+        return urldecode($_GET['init_data']);
     }
 
+    // 4. POST form-data
     if (!empty($_POST['init_data']) && is_string($_POST['init_data'])) {
         return $_POST['init_data'];
     }
@@ -73,8 +110,8 @@ function requireTelegramUser(): array {
         http_response_code(401);
         echo json_encode([
             'success' => false,
-            'data' => $initData
-                ? 'Telegram tasdiqlanmadi. Ilovani yoping va botdan qayta oching.'
+            'data'    => $initData
+                ? 'Telegram autentifikatsiya muvaffaqiyatsiz. Ilovani yopib, botdan qayta oching.'
                 : 'Telegram orqali kirish kerak',
         ]);
         exit;
@@ -86,7 +123,7 @@ function isAdminId(int $id): bool {
     return in_array($id, ADMIN_IDS, true);
 }
 
-/** Buyurtma oldidan foydalanuvchi bazada bo'lishi kerak (FK) */
+/** Buyurtma oldidan foydalanuvchi bazada bo'lishi kerak (FK uchun) */
 function ensureUserExists(array $tgUser): void {
     db()->prepare(
         "INSERT INTO users (id, username, first_name, last_name, language_code)
@@ -97,9 +134,9 @@ function ensureUserExists(array $tgUser): void {
            last_name=VALUES(last_name)"
     )->execute([
         (int)$tgUser['id'],
-        $tgUser['username'] ?? '',
-        $tgUser['first_name'] ?? '',
-        $tgUser['last_name'] ?? '',
+        $tgUser['username']      ?? '',
+        $tgUser['first_name']    ?? '',
+        $tgUser['last_name']     ?? '',
         $tgUser['language_code'] ?? 'uz',
     ]);
 }

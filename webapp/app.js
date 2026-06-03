@@ -1218,34 +1218,34 @@ function apiErrorMessage(res, fallback) {
 
 async function post(action, data) {
   try {
-    if (tg?.initData && !data.init_data) data.init_data = tg.initData;
+    // initData ni faqat header orqali yuborish — URL ga qo'shmaslik
+    const body = { ...data };
+    if (tg?.initData && !body.init_data) body.init_data = tg.initData;
     const r = await fetch(`${API}?action=${action}`, {
-      method: 'POST', headers: apiHeaders(),
-      body: JSON.stringify(data)
+      method: 'POST',
+      headers: apiHeaders(),
+      body: JSON.stringify(body)
     });
     const text = await r.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { success: false, data: text ? text.slice(0, 150) : `Server xatosi (${r.status})` };
-    }
-  } catch {
+    try { return JSON.parse(text); }
+    catch { return { success: false, data: text ? text.slice(0, 200) : `Server xatosi (${r.status})` }; }
+  } catch(e) {
     return { success: false, data: 'Internet ulanishi yo\'q' };
   }
 }
 
 async function get(action) {
   try {
-    let url = `${API}?action=${action}`;
-    if (tg?.initData) url += `&init_data=${encodeURIComponent(tg.initData)}`;
-    const r = await fetch(url, { headers: apiHeaders() });
+    // GET da init_data ni HEADER orqali yuborish
+    // URL ga qo'shmaslik — juda uzun bo'lib qoladi
+    const r = await fetch(`${API}?action=${action}`, {
+      method: 'GET',
+      headers: apiHeaders()
+    });
     const text = await r.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return { success: false, data: text ? text.slice(0, 150) : `Server xatosi (${r.status})` };
-    }
-  } catch {
+    try { return JSON.parse(text); }
+    catch { return { success: false, data: text ? text.slice(0, 200) : `Server xatosi (${r.status})` }; }
+  } catch(e) {
     return { success: false, data: 'Internet ulanishi yo\'q' };
   }
 }
