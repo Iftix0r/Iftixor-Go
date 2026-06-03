@@ -610,7 +610,11 @@ async function loadOrderHistory() {
   const orders = res.data;
   setText('statOrdersCount', orders.length);
   const spent = orders.reduce((a, o) => a + (o.status !== 'cancelled' ? +o.total : 0), 0);
-  setText('statTotalSpent', fmt(spent));
+  // Profil stats uchun qisqa format (1 250 000 → 1.25 mln)
+  const spentShort = spent >= 1000000
+    ? (spent/1000000).toFixed(2).replace(/\.?0+$/,'') + " mln so'm"
+    : fmt(spent);
+  setText('statTotalSpent', spentShort);
 
   const sMap = { new:'🆕 Yangi', confirmed:'✅ Qabul qilindi', cooking:'👨‍🍳 Tayyorlanmoqda', delivered:'🚚 Yetkazildi', cancelled:'❌ Bekor' };
   const cMap = { new:'s-new', confirmed:'s-confirmed', cooking:'s-cooking', delivered:'s-delivered', cancelled:'s-cancelled' };
@@ -625,7 +629,8 @@ async function loadOrderHistory() {
 
   el.innerHTML = sorted.map(o => {
     const items = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ');
-    const date = o.created_at ? new Date(o.created_at.replace(' ','T')).toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+    const d = o.created_at ? new Date(o.created_at.replace(' ','T')) : null;
+    const date = d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
     const isActive = o.status !== 'delivered' && o.status !== 'cancelled';
     return `
     <div class="order-hist-item${isActive ? ' order-active' : ''}">
@@ -635,7 +640,7 @@ async function loadOrderHistory() {
       </div>
       <div class="order-hist-items">${esc(items || '—')}</div>
       <div class="order-hist-foot">
-        <span class="order-hist-date">${date}</span>
+        <span class="order-hist-date">📅 ${date}</span>
         <span class="order-hist-total">${fmt(o.total)}</span>
       </div>
     </div>`;
