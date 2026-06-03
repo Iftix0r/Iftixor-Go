@@ -159,9 +159,13 @@ try {
 function getUserRole(int $id): string {
     static $cache = [];
     if (isset($cache[$id])) return $cache[$id];
-    $s = db()->prepare("SELECT role FROM users WHERE id=?");
-    $s->execute([$id]);
-    $cache[$id] = $s->fetchColumn() ?: 'user';
+    try {
+        $s = db()->prepare("SELECT role FROM users WHERE id=?");
+        $s->execute([$id]);
+        $cache[$id] = $s->fetchColumn() ?: 'user';
+    } catch (Throwable $e) {
+        $cache[$id] = 'user';
+    }
     return $cache[$id];
 }
 
