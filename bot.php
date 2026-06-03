@@ -36,14 +36,81 @@ function mainKeyboard(bool $hasPhone, string $role = 'user'): array {
 
 // Role-ga qarab inline tugmalar
 function roleInlineButtons(string $role): array {
-    $buttons = [[['text' => '🛒 Buyurtma berish', 'web_app' => ['url' => WEBAPP_URL]]]];
     if ($role === 'seller') {
-        $buttons[] = [['text' => '🏪 Mening Restoranim', 'web_app' => ['url' => WEBAPP_URL . 'seller.html']]];
+        return ['inline_keyboard' => [
+            [['text' => '📦 Buyurtmalar',    'callback_data' => 'seller_orders']],
+            [['text' => '🍽️ Menyu boshqarish','callback_data' => 'seller_menu']],
+            [['text' => '📊 Statistika',     'callback_data' => 'seller_stats']],
+        ]];
     }
     if ($role === 'admin') {
-        $buttons[] = [['text' => '⚙️ Admin Panel', 'web_app' => ['url' => WEBAPP_URL . 'admin.html']]];
+        return ['inline_keyboard' => [
+            [['text' => '⚙️ Admin Panel', 'web_app' => ['url' => WEBAPP_URL . 'admin.html']]],
+        ]];
     }
-    return ['inline_keyboard' => $buttons];
+    return ['inline_keyboard' => [
+        [['text' => '🛒 Buyurtma berish', 'web_app' => ['url' => WEBAPP_URL]]]
+    ]];
+}
+
+function sellerOrdersKeyboard(array $orders): array {
+    $rows = [];
+    foreach (array_slice($orders, 0, 8) as $o) {
+        $statusIcons = ['new'=>'🆕','confirmed'=>'✅','cooking'=>'👨‍🍳','delivered'=>'🚚','cancelled'=>'❌'];
+        $icon = $statusIcons[$o['status']] ?? '❓';
+        $rows[] = [['text' => "{$icon} #{$o['id']} — ".number_format($o['total']).' so\'m', 'callback_data' => 'order_detail_'.$o['id']]];
+    }
+    $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
+    return ['inline_keyboard' => $rows];
+}
+
+function orderDetailKeyboard(int $orderId, string $status): array {
+    $buttons = [['text' => '🔙 Buyurtmalar', 'callback_data' => 'seller_orders']];
+    $actions = [
+        'new'       => [['text' => '✅ Qabul', 'callback_data' => "seller_status_{$orderId}_confirmed"], ['text' => '❌ Bekor', 'callback_data' => "seller_status_{$orderId}_cancelled"]],
+        'confirmed' => [['text' => '👨‍🍳 Tayyorlanmoqda', 'callback_data' => "seller_status_{$orderId}_cooking"]],
+        'cooking'   => [['text' => '🚚 Yetkazildi', 'callback_data' => "seller_status_{$orderId}_delivered"]],
+    ];
+    $rows = [];
+    if (isset($actions[$status])) $rows[] = $actions[$status];
+    $rows[] = $buttons;
+    return ['inline_keyboard' => $rows];
+}
+
+function getSellerRestaurant(int $tgId): ?array {
+    $s = db()->prepare("SELECT r.* FROM restaurants r JOIN users u ON u.restaurant_id=r.id WHERE u.id=?");
+    $s->execute([$tgId]);
+    return $s->fetch() ?: null;
+}
+
+function getSellerOrders(int $tgId): array {
+    $rest = getSellerRestaurant($tgId);
+    if (!$rest) return [];
+    $prods = db()->prepare("SELECT id FROM products WHERE restaurant_id=?");
+    $prods->execute([$rest['id']]);
+    $prodIds = array_column($prods->fetchAll(), 'id');
+    if (!$prodIds) return [];
+
+    $orders = db()->query("SELECT * FROM orders WHERE status != 'cancelled' ORDER BY id DESC LIMIT 50")->fetchAll();
+    $result = [];
+    foreach ($orders as $o) {
+        $items = json_decode($o['items'], true) ?? [];
+        foreach ($items as $item) {
+            if (in_array((int)$item['id'], $prodIds)) {
+                $result[] = $o;
+                break;
+            }
+        }
+    }
+    return $result;
+}
+
+function getSellerProducts(int $tgId): array {
+    $rest = getSellerRestaurant($tgId);
+    if (!$rest) return [];
+    $s = db()->prepare("SELECT * FROM products WHERE restaurant_id=? ORDER BY id DESC");
+    $s->execute([$rest['id']]);
+    return $s->fetchAll();
 }
 
 function getUserRole(int $id): string {
