@@ -114,6 +114,31 @@ function getSellerProducts(int $tgId): array {
     return $s->fetchAll();
 }
 
+// ── STATE: sotuvchi jarayon holati ──
+function setSellerState(int $uid, string $state, int $ref = 0): void {
+    db()->prepare("INSERT INTO seller_states (user_id, state, ref_id) VALUES (?,?,?) ON DUPLICATE KEY UPDATE state=VALUES(state), ref_id=VALUES(ref_id), updated_at=NOW()")
+        ->execute([$uid, $state, $ref]);
+}
+function getSellerState(int $uid): array {
+    try {
+        $s = db()->prepare("SELECT state, ref_id FROM seller_states WHERE user_id=? AND updated_at > NOW() - INTERVAL 10 MINUTE");
+        $s->execute([$uid]);
+        return $s->fetch() ?: ['state' => '', 'ref_id' => 0];
+    } catch (Throwable $e) { return ['state' => '', 'ref_id' => 0]; }
+}
+function clearSellerState(int $uid): void {
+    db()->prepare("DELETE FROM seller_states WHERE user_id=?")->execute([$uid]);
+}
+// Jadval yo'q bo'lsa yaratamiz
+try {
+    db()->exec("CREATE TABLE IF NOT EXISTS seller_states (
+        user_id BIGINT PRIMARY KEY,
+        state VARCHAR(64) NOT NULL,
+        ref_id INT DEFAULT 0,
+        updated_at DATETIME DEFAULT NOW()
+    )");
+} catch (Throwable $e) {}
+
 function getUserRole(int $id): string {
     static $cache = [];
     if (isset($cache[$id])) return $cache[$id];
