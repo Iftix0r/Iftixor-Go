@@ -202,7 +202,8 @@ function updateHeader() {
   } else if (currentService === 'taxi') {
     const titles = {
       taxi: { t: 'Taxi', s: 'Taxi xizmati' },
-      profile: { t: 'Profil', s: 'Taxi' },
+      'taxi-orders': { t: 'Buyurtmalarim', s: 'Taxi' },
+      'taxi-profile': { t: 'Profil', s: 'Taxi' },
       'taxi-success': { t: 'Qabul qilindi', s: 'Taxi' },
     };
     const lbl = titles[page] || SERVICE_LABELS.taxi;
@@ -258,7 +259,7 @@ function navTo(name) {
     return;
   }
   showPage(name);
-  if (name === 'profile') { loadProfile(); loadOrderHistory(); }
+  if (name === 'profile' && currentService === 'food') { loadProfile(); loadOrderHistory(); }
   if (name === 'cart') renderCart();
   updateHeader();
 }
@@ -272,9 +273,11 @@ function showFoodPage(name) {
 }
 
 function showTaxiPage(name) {
-  showPage(name);
-  if (name === 'taxi')   setTaxiNav('navTaxiMain');
-  if (name === 'profile'){ loadProfile(); loadOrderHistory(); setTaxiNav('navTaxiProfile'); }
+  const pageMap = { taxi: 'taxi', orders: 'taxi-orders', profile: 'taxi-profile' };
+  showPage(pageMap[name] || name);
+  if (name === 'taxi')    setTaxiNav('navTaxiMain');
+  if (name === 'orders') { loadTaxiRideHistory(); setTaxiNav('navTaxiOrders'); }
+  if (name === 'profile'){ loadTaxiProfile(); setTaxiNav('navTaxiProfile'); }
   updateHeader();
 }
 
@@ -286,7 +289,7 @@ function setFoodNav(activeId) {
 }
 
 function setTaxiNav(activeId) {
-  ['navTaxiMain','navTaxiProfile'].forEach(id => {
+  ['navTaxiMain','navTaxiOrders','navTaxiProfile'].forEach(id => {
     const el = $(id); if (el) el.classList.remove('active');
   });
   const el = $(activeId); if (el) el.classList.add('active');
@@ -323,7 +326,7 @@ async function init() {
     if (tgUser?.id) await saveUser();
     else showGuestHeader();
     await loadMenu();
-    if (tgUser?.id) { loadProfile(); loadOrderHistory(); }
+    if (tgUser?.id) loadProfile();
     renderCart();
     updateCartBadge();
     showPage('service');
@@ -937,7 +940,107 @@ async function saveProfile() {
   }
 }
 
-// ── ORDER HISTORY ──
+// ── TAXI PROFILE & ORDERS ──
+async function loadTaxiProfile() {
+  if (!tgUser?.id) return;
+  const res = await get(`get_profile&user_id=${tgUser.id}`);
+  if (!res.success || !res.data) return;
+  const u = res.data;
+  const name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+  setText('taxiProfileName', name || 'Foydalanuvchi');
+  setText('taxiProfileUsername', u.username ? `@${u.username}` : '');
+  if (u.phone) { const tp = $('taxiProfilePhone'); if (tp) tp.value = u.phone; }
+  const photo = u.photo_url || tgUser?.photo_url || '';
+  const pPhoto = $('taxiProfilePhoto');
+  if (pPhoto) pPhoto.src = photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name || 'U')}&background=2563eb&color=fff&size=160&bold=true`;
+  await loadTaxiRideStats();
+}
+
+async function loadTaxiRideStats() {
+  if (!tgUser?.id) return;
+  const res = await get(`my_taxi_rides&user_id=${tgUser.id}`);
+  if (!res.success || !res.data) {
+    setText('taxiStatRidesCount', '0');
+    setText('taxiStatTotalSpent', "0 so'm");
+    return;
+  }
+  const rides = res.data;
+  setText('taxiStatRidesCount', rides.length);
+  const spent = rides.reduce((a, r) => a + (r.status !== 'cancelled' ? +r.price : 0), 0);
+  setText('taxiStatTotalSpent', fmt(spent));
+}
+
+async function saveTaxiProfile() {
+  if (!tgUser?.id) return toast('Telegram orqali kirish kerak!');
+  const phone = $('taxiProfilePhone')?.value.trim() || '';
+  if (phone && !/^\+?[\d\s\-\(\)]{7,15}$/.test(phone)) return toast('Telefon raqam noto\'g\'ri!');
+  const btn = document.querySelector('#page-taxi-profile .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saqlanmoqda...'; }
+  const prof = await get(`get_profile&user_id=${tgUser.id}`);
+  const address = prof.success && prof.data ? (prof.data.address || '') : '';
+  const res = await post('update_profile', { user_id: tgUser.id, phone, address });
+  if (btn) { btn.disabled = false; btn.textContent = 'Saqlash'; }
+  if (res.success) {
+    toast('✓ Saqlandi!');
+    playSound('success');
+    const tp = $('taxiPhone');
+    if (tp && phone) tp.value = phone;
+  } else {
+    playSound('error');
+    toast('Xatolik yuz berdi!');
+  }
+}
+
+async function loadTaxiRideHistory() {
+  if (!tgUser?.id) return;
+  const res = await get(`my_taxi_rides&user_id=${tgUser.id}`);
+  const el = $('taxiOrderHistory');
+  if (!el) return;
+
+  if (!res.success || !res.data?.length) {
+    el.innerHTML = `
+      <div class="orders-empty" style="margin:0 16px">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="#c7c7cc" stroke-width="1.5"/><circle cx="7" cy="16" r="1.5" fill="#c7c7cc"/><circle cx="17" cy="16" r="1.5" fill="#c7c7cc"/></svg>
+        <p>Taxi buyurtmalari yo'q</p>
+        <small style="color:var(--subtext);margin-top:6px;display:block">Birinchi safaringizni buyurtma qiling</small>
+      </div>`;
+    return;
+  }
+
+  const sMap = {
+    new: '🆕 Yangi', accepted: '✅ Qabul qilindi', on_way: '🚕 Yo\'lda',
+    arrived: '📍 Yetib keldi', completed: '✓ Tugallandi', cancelled: '❌ Bekor'
+  };
+  const cMap = {
+    new: 's-new', accepted: 's-confirmed', on_way: 's-cooking',
+    arrived: 's-cooking', completed: 's-delivered', cancelled: 's-cancelled'
+  };
+  const typeMap = { ekonom: '🚗 Ekonom', comfort: '🚙 Comfort', minivan: '🚐 Minivan' };
+
+  el.innerHTML = res.data.map(r => {
+    const d = r.created_at ? new Date(r.created_at.replace(' ', 'T')) : null;
+    const date = d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
+    const isActive = !['completed', 'cancelled'].includes(r.status);
+    const price = +r.price > 0 ? fmt(r.price) : '—';
+    return `
+    <div class="order-hist-item taxi-hist-item${isActive ? ' order-active' : ''}" style="margin:0 16px 10px">
+      <div class="order-hist-head">
+        <span class="order-hist-id">#${r.id}</span>
+        <span class="status-badge ${cMap[r.status] || 's-new'}">${sMap[r.status] || r.status}</span>
+      </div>
+      <div class="taxi-hist-route">
+        <div class="taxi-hist-row"><span class="taxi-dot taxi-dot-from"></span>${esc(r.from_address || '—')}</div>
+        <div class="taxi-hist-row"><span class="taxi-dot taxi-dot-to"></span>${esc(r.to_address || '—')}</div>
+      </div>
+      <div class="order-hist-foot">
+        <span class="order-hist-date">${typeMap[r.car_type] || '🚖'} · ${date}</span>
+        <span class="order-hist-total">${price}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── ORDER HISTORY (ovqat) ──
 async function loadOrderHistory() {
   if (!tgUser?.id) return;
   const res = await get(`my_orders&user_id=${tgUser.id}`);
@@ -1070,12 +1173,14 @@ async function submitTaxi() {
   const btn = document.querySelector('#page-taxi .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
 
-  const res = await post('place_order', {
+  const res = await post('taxi_order', {
     user_id: tgUser?.id || 0,
-    items: [{ id: 0, name: `🚖 Taxi: ${from} → ${to}`, price: 0, qty: 1 }],
-    phone, address: from,
-    note: `Taxi: ${from} → ${to}${note ? ' | ' + note : ''}`,
-    type: 'taxi'
+    from_address: from,
+    to_address: to,
+    phone,
+    note,
+    car_type: 'ekonom',
+    price: 0,
   });
 
   if (btn) { btn.disabled = false; btn.textContent = 'Taxi chaqirish 🚖'; }
@@ -1085,9 +1190,11 @@ async function submitTaxi() {
     $('taxiFrom').value = '';
     $('taxiTo').value   = '';
     $('taxiNote').value = '';
+    const rideId = res.data?.ride_id || '';
     const info = $('taxiSuccessInfo');
     if (info) info.innerHTML = `
       <div class="taxi-route">
+        ${rideId ? `<div style="font-size:13px;color:var(--subtext);margin-bottom:8px">Buyurtma #${rideId}</div>` : ''}
         <div class="taxi-route-row"><span class="taxi-dot taxi-dot-from"></span><span>${esc(from)}</span></div>
         <div class="taxi-route-row"><span class="taxi-dot taxi-dot-to"></span><span>${esc(to)}</span></div>
       </div>`;
@@ -1095,7 +1202,8 @@ async function submitTaxi() {
     setTaxiNav('navTaxiMain');
   } else {
     playSound('error');
-    toast('❌ Xatolik yuz berdi, qayta urinib ko\'ring!');
+    const msg = typeof res.data === 'string' ? res.data : 'Xatolik yuz berdi, qayta urinib ko\'ring!';
+    toast('❌ ' + msg);
   }
 }
 

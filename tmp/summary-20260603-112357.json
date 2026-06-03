@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed taxi section sharing food profile: added separate page-taxi-orders (Buyurtmalarim) and page-taxi-profile with taxi stats and phone only; taxi bottom nav now Taxi | Buyurtmalar | Profil; loadTaxiRideHistory uses my_taxi_rides API; submitTaxi uses taxi_order instead of place_order; food profile unchanged with ovqat buyurtmalari only.",
+  "current_status": "Taxi and food profiles/orders are separated in webapp. Deploy index.html, app.js?v=2.4, style.css. Ensure taxi_rides table exists on server (db.php migration)."
+}

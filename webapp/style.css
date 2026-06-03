@@ -840,6 +840,28 @@ body {
 }
 
 /* ── TAXI SUCCESS ── */
+.profile-service-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 12px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+.profile-header-taxi .profile-header-bg {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+.taxi-hist-route {
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 8px 0; font-size: 13px; line-height: 1.35;
+}
+.taxi-hist-row {
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.taxi-hist-item { border-left: 3px solid #2563eb; }
+
 .taxi-success-info {
   margin: 12px 0 8px; width: 100%;
 }
