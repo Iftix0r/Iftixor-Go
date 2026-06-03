@@ -815,6 +815,9 @@ function requestPhone() {
 
 // ── ORDER ──
 async function submitOrder() {
+  if (!tgUser?.id) return toast('Buyurtma uchun Telegram orqali oching!');
+  if (!tg?.initData) return toast('Ilovani yoping va botdan qayta oching!');
+
   const phone   = $('checkoutPhone').value.trim();
   const address = $('checkoutAddress').value.trim();
   const note    = $('checkoutNote').value.trim();
@@ -823,12 +826,15 @@ async function submitOrder() {
   if (!/^\+?[\d\s\-\(\)]{7,15}$/.test(phone)) return toast('Telefon raqam noto\'g\'ri!');
   if (!address) return toast('Manzil kiriting!');
   if (address.length < 5) return toast('Manzilni to\'liq kiriting!');
+  if (!cart.length) return toast('Savat bo\'sh!');
 
   const btn = document.querySelector('.btn-order');
   if (btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
 
+  await saveUser();
+
   const res = await post('place_order', {
-    user_id: tgUser?.id || 0,
+    user_id: tgUser.id,
     items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
     phone, address, note
   });
@@ -842,7 +848,7 @@ async function submitOrder() {
     loadOrderHistory();
     startOrderPolling(res.data.order_id);
   } else {
-    const msg = typeof res.data === 'string' ? res.data : 'Xatolik yuz berdi!';
+    const msg = apiErrorMessage(res, 'Buyurtma yuborilmadi');
     playSound('error');
     toast('❌ ' + msg);
     if (btn) { btn.disabled = false; btn.textContent = 'Buyurtma berish'; }
@@ -1148,28 +1154,45 @@ function apiHeaders() {
   return h;
 }
 
+function apiErrorMessage(res, fallback) {
+  if (!res) return fallback;
+  if (typeof res.data === 'string' && res.data) return res.data;
+  if (res.data?.message) return res.data.message;
+  return fallback;
+}
+
 async function post(action, data) {
   try {
-    // initData ni body ga ham qo'shamiz (header o'tmaydigan serverlar uchun)
     if (tg?.initData && !data.init_data) data.init_data = tg.initData;
     const r = await fetch(`${API}?action=${action}`, {
       method: 'POST', headers: apiHeaders(),
       body: JSON.stringify(data)
     });
-    return await r.json();
-  } catch { return { success: false }; }
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { success: false, data: text ? text.slice(0, 150) : `Server xatosi (${r.status})` };
+    }
+  } catch {
+    return { success: false, data: 'Internet ulanishi yo\'q' };
+  }
 }
 
 async function get(action) {
   try {
-    // initData ni URL ga ham qo'shamiz
-    const sep = action.includes('&') ? '&' : '?';
-    const url = tg?.initData
-      ? `${API}?action=${action}&init_data=${encodeURIComponent(tg.initData)}`
-      : `${API}?action=${action}`;
+    let url = `${API}?action=${action}`;
+    if (tg?.initData) url += `&init_data=${encodeURIComponent(tg.initData)}`;
     const r = await fetch(url, { headers: apiHeaders() });
-    return await r.json();
-  } catch { return { success: false }; }
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { success: false, data: text ? text.slice(0, 150) : `Server xatosi (${r.status})` };
+    }
+  } catch {
+    return { success: false, data: 'Internet ulanishi yo\'q' };
+  }
 }
 
 // ── TAXI ──
@@ -1388,6 +1411,9 @@ async function pollTaxiRideStatus(rideId) {
 }
 
 async function submitTaxi() {
+  if (!tgUser?.id) return toast('Telegram orqali oching!');
+  if (!tg?.initData) return toast('Ilovani yoping va botdan qayta oching!');
+
   const from  = $('taxiFrom')?.value.trim();
   const to    = $('taxiTo')?.value.trim();
   const phone = $('taxiPhone')?.value.trim();
@@ -1398,6 +1424,8 @@ async function submitTaxi() {
   if (!phone) return toast('Telefon raqam kiriting!');
   if (!/^\+?[\d\s\-\(\)]{7,15}$/.test(phone)) return toast('Telefon raqam noto\'g\'ri!');
 
+  await saveUser();
+
   const btn = $('taxiSubmitBtn');
   const btnHtml = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<span>Yuborilmoqda...</span>'; }
@@ -1406,7 +1434,7 @@ async function submitTaxi() {
   const price = taxiState.price || taxiState.tariffs[taxiState.carType]?.min || 0;
 
   const res = await post('taxi_order', {
-    user_id: tgUser?.id || 0,
+    user_id: tgUser.id,
     from_address: from,
     to_address: to,
     phone,
@@ -1452,8 +1480,7 @@ async function submitTaxi() {
     checkTaxiActiveRide();
   } else {
     playSound('error');
-    const msg = typeof res.data === 'string' ? res.data : 'Xatolik yuz berdi, qayta urinib ko\'ring!';
-    toast('❌ ' + msg);
+    toast('❌ ' + apiErrorMessage(res, 'Taxi buyurtma yuborilmadi'));
   }
 }
 

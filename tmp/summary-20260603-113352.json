@@ -1,0 +1,4 @@
+{
+  "summary": "User reported generic 'Xatolik yuz berdi' on order placement. Root causes addressed: improved Telegram initData validation (manual parse + rawurldecode), ensureUserExists before orders (FK fix), taxi_rides auto-migration, try/catch on place_order/taxi_order with real error messages, client post/get parses JSON errors and shows server messages, submitOrder/submitTaxi require initData and call saveUser first.",
+  "current_status": "Order/taxi submission fixes ready locally. User must deploy auth.php, api.php, db.php, webapp/app.js v2.6 to server. If error persists, toast will now show exact reason (auth, DB, products)."
+}

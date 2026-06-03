@@ -111,80 +111,84 @@ switch ($action) {
 
     // ── ORDER ──
     case 'place_order':
-        $auth = requireTelegramUser();
-        $userId  = (int)($input['user_id'] ?? 0);
-        if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
-        $items   = $input['items']   ?? [];
-        $address = trim($input['address'] ?? '');
-        $phone   = trim($input['phone'] ?? '');
-        $note    = trim($input['note'] ?? '');
-        if (!$userId || empty($items)) resp('Invalid data', false);
-        if (!$phone || !$address) resp('Telefon va manzil kerak', false);
+        try {
+            $auth = requireTelegramUser();
+            $userId  = (int)($input['user_id'] ?? 0);
+            if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
+            ensureUserExists($auth);
 
-        // Block tekshiruvi
-        $chk = db()->prepare("SELECT is_blocked, block_reason FROM users WHERE id=?");
-        $chk->execute([$userId]);
-        $cu = $chk->fetch();
-        if ($cu && $cu['is_blocked']) {
-            resp('Siz bloklangansiz' . ($cu['block_reason'] ? ': ' . $cu['block_reason'] : ''), false);
+            $items   = $input['items']   ?? [];
+            $address = trim($input['address'] ?? '');
+            $phone   = trim($input['phone'] ?? '');
+            $note    = trim($input['note'] ?? '');
+            if (!$userId || empty($items)) resp('Noto\'g\'ri ma\'lumot', false);
+            if (!$phone || !$address) resp('Telefon va manzil kerak', false);
+
+            $chk = db()->prepare("SELECT is_blocked, block_reason FROM users WHERE id=?");
+            $chk->execute([$userId]);
+            $cu = $chk->fetch();
+            if ($cu && $cu['is_blocked']) {
+                resp('Siz bloklangansiz' . ($cu['block_reason'] ? ': ' . $cu['block_reason'] : ''), false);
+            }
+
+            $productIds = array_values(array_unique(array_filter(array_map(fn($i) => (int)($i['id'] ?? 0), $items))));
+            if (empty($productIds)) resp('Bo\'sh buyurtma', false);
+            $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+            $dbProds = db()->prepare("SELECT id, price, name FROM products WHERE id IN ($placeholders) AND available=1");
+            $dbProds->execute($productIds);
+            $priceMap = [];
+            foreach ($dbProds->fetchAll() as $p) $priceMap[$p['id']] = ['price' => (float)$p['price'], 'name' => $p['name']];
+
+            $validatedItems = [];
+            foreach ($items as $item) {
+                $pid = (int)($item['id'] ?? 0);
+                if (!isset($priceMap[$pid])) continue;
+                $qty = max(1, (int)($item['qty'] ?? 1));
+                $validatedItems[] = [
+                    'id'    => $pid,
+                    'name'  => $priceMap[$pid]['name'],
+                    'price' => $priceMap[$pid]['price'],
+                    'qty'   => $qty,
+                ];
+            }
+            if (empty($validatedItems)) resp('Mahsulot topilmadi yoki sotuvda yo\'q', false);
+            $items = $validatedItems;
+
+            $subtotal = array_sum(array_map(fn($i) => $i['price'] * $i['qty'], $items));
+            $total = $subtotal + DELIVERY_FEE;
+            $stmt = db()->prepare("INSERT INTO orders (user_id, items, total, address, phone, note) VALUES (?,?,?,?,?,?)");
+            $stmt->execute([$userId, json_encode($items, JSON_UNESCAPED_UNICODE), $total, $address, $phone, $note]);
+            $orderId = db()->lastInsertId();
+
+            $u = db()->prepare("SELECT * FROM users WHERE id=?");
+            $u->execute([$userId]);
+            $u = $u->fetch() ?: [];
+
+            $itemList = implode("\n", array_map(fn($i) => "  • {$i['name']} × {$i['qty']} = ".number_format($i['price']*$i['qty'])." ".CURRENCY, $items));
+            $name  = trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''));
+            $uname = !empty($u['username']) ? "@{$u['username']}" : "ID: $userId";
+
+            $msg = "🆕 *Yangi Buyurtma #$orderId*\n\n"
+                 . "👤 *Mijoz:* $name ($uname)\n"
+                 . "📞 *Tel:* $phone\n"
+                 . "📍 *Manzil:* $address\n"
+                 . ($note ? "📝 *Izoh:* $note\n" : '')
+                 . "\n🛒 *Buyurtma:*\n$itemList\n\n"
+                 . "🚚 *Yetkazish:* ".number_format(DELIVERY_FEE)." ".CURRENCY."\n"
+                 . "💰 *Jami: ".number_format($total)." ".CURRENCY."*\n"
+                 . "🕐 ".date('d.m.Y H:i');
+
+            tgReq('sendMessage', [
+                'chat_id' => GROUP_CHAT_ID, 'text' => $msg, 'parse_mode' => 'Markdown',
+                'reply_markup' => ['inline_keyboard' => [[
+                    ['text' => '✅ Qabul', 'callback_data' => "confirm_$orderId"],
+                    ['text' => '❌ Bekor', 'callback_data' => "cancel_$orderId"],
+                ]]]
+            ]);
+            resp(['order_id' => $orderId, 'total' => $total, 'subtotal' => $subtotal, 'delivery_fee' => DELIVERY_FEE]);
+        } catch (Throwable $e) {
+            resp('Buyurtma saqlanmadi: ' . $e->getMessage(), false);
         }
-
-        // Narxlarni DB dan tekshirish (manipulation oldini olish)
-        $productIds = array_map(fn($i) => (int)$i['id'], $items);
-        if (empty($productIds)) resp('Bo\'sh buyurtma', false);
-        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
-        $dbProds = db()->prepare("SELECT id, price, name FROM products WHERE id IN ($placeholders) AND available=1");
-        $dbProds->execute($productIds);
-        $priceMap = [];
-        foreach ($dbProds->fetchAll() as $p) $priceMap[$p['id']] = ['price' => (float)$p['price'], 'name' => $p['name']];
-
-        $validatedItems = [];
-        foreach ($items as $item) {
-            $pid = (int)($item['id'] ?? 0);
-            if (!isset($priceMap[$pid])) continue; // Mavjud bo'lmagan mahsulot
-            $qty = max(1, (int)($item['qty'] ?? 1));
-            $validatedItems[] = [
-                'id'    => $pid,
-                'name'  => $priceMap[$pid]['name'],
-                'price' => $priceMap[$pid]['price'], // DB narxi
-                'qty'   => $qty,
-            ];
-        }
-        if (empty($validatedItems)) resp('Hech bir mahsulot topilmadi', false);
-        $items = $validatedItems;
-
-        $subtotal = array_sum(array_map(fn($i) => $i['price'] * $i['qty'], $items));
-        $total = $subtotal + DELIVERY_FEE;
-        $stmt = db()->prepare("INSERT INTO orders (user_id, items, total, address, phone, note) VALUES (?,?,?,?,?,?)");
-        $stmt->execute([$userId, json_encode($items, JSON_UNESCAPED_UNICODE), $total, $address, $phone, $note]);
-        $orderId = db()->lastInsertId();
-
-        $u = db()->prepare("SELECT * FROM users WHERE id=?");
-        $u->execute([$userId]);
-        $u = $u->fetch();
-
-        $itemList = implode("\n", array_map(fn($i) => "  • {$i['name']} × {$i['qty']} = ".number_format($i['price']*$i['qty'])." ".CURRENCY, $items));
-        $name  = trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''));
-        $uname = $u['username'] ? "@{$u['username']}" : "ID: $userId";
-
-        $msg = "🆕 *Yangi Buyurtma #$orderId*\n\n"
-             . "👤 *Mijoz:* $name ($uname)\n"
-             . "📞 *Tel:* $phone\n"
-             . "📍 *Manzil:* $address\n"
-             . ($note ? "📝 *Izoh:* $note\n" : '')
-             . "\n🛒 *Buyurtma:*\n$itemList\n\n"
-             . "🚚 *Yetkazish:* ".number_format(DELIVERY_FEE)." ".CURRENCY."\n"
-             . "💰 *Jami: ".number_format($total)." ".CURRENCY."*\n"
-             . "🕐 ".date('d.m.Y H:i');
-
-        tgReq('sendMessage', [
-            'chat_id' => GROUP_CHAT_ID, 'text' => $msg, 'parse_mode' => 'Markdown',
-            'reply_markup' => ['inline_keyboard' => [[
-                ['text' => '✅ Qabul', 'callback_data' => "confirm_$orderId"],
-                ['text' => '❌ Bekor', 'callback_data' => "cancel_$orderId"],
-            ]]]
-        ]);
-        resp(['order_id' => $orderId, 'total' => $total, 'subtotal' => $subtotal, 'delivery_fee' => DELIVERY_FEE]);
         break;
 
     case 'my_orders':
@@ -456,70 +460,74 @@ switch ($action) {
         break;
 
     case 'taxi_order':
-        $auth   = requireTelegramUser();
-        $userId = (int)($input['user_id'] ?? 0);
-        if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
+        try {
+            $auth   = requireTelegramUser();
+            $userId = (int)($input['user_id'] ?? 0);
+            if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
+            ensureUserExists($auth);
 
-        $from    = trim($input['from_address'] ?? '');
-        $to      = trim($input['to_address']   ?? '');
-        $phone   = trim($input['phone']        ?? '');
-        $type    = $input['car_type'] ?? 'ekonom';
-        $price   = (float)($input['price']     ?? 0);
-        $note    = trim($input['note']         ?? '');
-        $fromLat = (float)($input['from_lat']  ?? 0);
-        $fromLon = (float)($input['from_lon']  ?? 0);
-        $toLat   = (float)($input['to_lat']    ?? 0);
-        $toLon   = (float)($input['to_lon']    ?? 0);
+            $from    = trim($input['from_address'] ?? '');
+            $to      = trim($input['to_address']   ?? '');
+            $phone   = trim($input['phone']        ?? '');
+            $type    = in_array($input['car_type'] ?? '', ['ekonom','comfort','minivan'], true)
+                ? $input['car_type'] : 'ekonom';
+            $price   = (float)($input['price'] ?? 0);
+            $note    = trim($input['note'] ?? '');
+            $fromLat = (float)($input['from_lat'] ?? 0);
+            $fromLon = (float)($input['from_lon'] ?? 0);
+            $toLat   = (float)($input['to_lat'] ?? 0);
+            $toLon   = (float)($input['to_lon'] ?? 0);
 
-        if (!$from || !$to || !$phone) resp('from, to va phone kerak', false);
-        if (!$userId) resp('No user', false);
+            if (!$from || !$to || !$phone) resp('Manzil va telefon kerak', false);
+            if (!$userId) resp('Foydalanuvchi topilmadi', false);
 
-        // Bloklangan foydalanuvchi tekshiruvi
-        $chk = db()->prepare("SELECT is_blocked FROM users WHERE id=?");
-        $chk->execute([$userId]);
-        $cu = $chk->fetch();
-        if ($cu && $cu['is_blocked']) resp('Siz bloklangansiz', false);
+            $chk = db()->prepare("SELECT is_blocked FROM users WHERE id=?");
+            $chk->execute([$userId]);
+            $cu = $chk->fetch();
+            if ($cu && $cu['is_blocked']) resp('Siz bloklangansiz', false);
 
-        $s = db()->prepare(
-            "INSERT INTO taxi_rides (user_id, phone, from_address, to_address, from_lat, from_lon, to_lat, to_lon, car_type, price, note)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?)"
-        );
-        $s->execute([$userId, $phone, $from, $to, $fromLat, $fromLon, $toLat, $toLon, $type, $price, $note]);
-        $rideId = db()->lastInsertId();
+            $s = db()->prepare(
+                "INSERT INTO taxi_rides (user_id, phone, from_address, to_address, from_lat, from_lon, to_lat, to_lon, car_type, price, note)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+            );
+            $s->execute([$userId, $phone, $from, $to, $fromLat, $fromLon, $toLat, $toLon, $type, $price, $note]);
+            $rideId = db()->lastInsertId();
 
-        // Foydalanuvchi ma'lumotlari
-        $u = db()->prepare("SELECT * FROM users WHERE id=?");
-        $u->execute([$userId]);
-        $u = $u->fetch();
-        $name  = trim(($u['first_name']??'').' '.($u['last_name']??''));
-        $uname = $u['username'] ? "@{$u['username']}" : "ID: $userId";
+            $u = db()->prepare("SELECT * FROM users WHERE id=?");
+            $u->execute([$userId]);
+            $u = $u->fetch() ?: [];
+            $name  = trim(($u['first_name']??'').' '.($u['last_name']??''));
+            $uname = !empty($u['username']) ? "@{$u['username']}" : "ID: $userId";
 
-        $typeLabels = ['ekonom' => '🚗 Ekonom', 'comfort' => '🚙 Comfort', 'minivan' => '🚐 Minivan'];
-        $typeLabel  = $typeLabels[$type] ?? $type;
+            $typeLabels = ['ekonom' => '🚗 Ekonom', 'comfort' => '🚙 Comfort', 'minivan' => '🚐 Minivan'];
+            $typeLabel  = $typeLabels[$type] ?? $type;
 
-        $fromMaps = $fromLat ? "https://maps.google.com/?q={$fromLat},{$fromLon}" : '';
-        $toMaps   = $toLat   ? "https://maps.google.com/?q={$toLat},{$toLon}"     : '';
+            $fromMaps = $fromLat ? "https://maps.google.com/?q={$fromLat},{$fromLon}" : '';
+            $toMaps   = $toLat   ? "https://maps.google.com/?q={$toLat},{$toLon}"     : '';
 
-        $msg = "🚕 *Yangi Taxi #{$rideId}*\n\n"
-             . "👤 *Mijoz:* {$name} ({$uname})\n"
-             . "📞 *Tel:* {$phone}\n"
-             . "{$typeLabel}\n\n"
-             . "📍 *Qayerdan:* {$from}" . ($fromMaps ? " [🗺]({$fromMaps})" : '') . "\n"
-             . "🏁 *Qayerga:* {$to}"   . ($toMaps   ? " [🗺]({$toMaps})"   : '') . "\n"
-             . "💰 *Narx:* " . number_format($price, 0, '.', ' ') . " so'm\n"
-             . ($note ? "📝 *Izoh:* {$note}\n" : '')
-             . "🕐 " . date('d.m.Y H:i');
+            $msg = "🚕 *Yangi Taxi #{$rideId}*\n\n"
+                 . "👤 *Mijoz:* {$name} ({$uname})\n"
+                 . "📞 *Tel:* {$phone}\n"
+                 . "{$typeLabel}\n\n"
+                 . "📍 *Qayerdan:* {$from}" . ($fromMaps ? " [🗺]({$fromMaps})" : '') . "\n"
+                 . "🏁 *Qayerga:* {$to}"   . ($toMaps   ? " [🗺]({$toMaps})"   : '') . "\n"
+                 . "💰 *Narx:* " . number_format($price, 0, '.', ' ') . " so'm\n"
+                 . ($note ? "📝 *Izoh:* {$note}\n" : '')
+                 . "🕐 " . date('d.m.Y H:i');
 
-        tgReq('sendMessage', [
-            'chat_id'      => GROUP_CHAT_ID,
-            'text'         => $msg,
-            'parse_mode'   => 'Markdown',
-            'reply_markup' => ['inline_keyboard' => [[
-                ['text' => '✅ Qabul',   'callback_data' => "taxi_accept_{$rideId}"],
-                ['text' => '❌ Bekor',   'callback_data' => "taxi_cancel_{$rideId}"],
-            ]]]
-        ]);
-        resp(['ride_id' => $rideId, 'price' => $price]);
+            tgReq('sendMessage', [
+                'chat_id'      => GROUP_CHAT_ID,
+                'text'         => $msg,
+                'parse_mode'   => 'Markdown',
+                'reply_markup' => ['inline_keyboard' => [[
+                    ['text' => '✅ Qabul',   'callback_data' => "taxi_accept_{$rideId}"],
+                    ['text' => '❌ Bekor',   'callback_data' => "taxi_cancel_{$rideId}"],
+                ]]]
+            ]);
+            resp(['ride_id' => $rideId, 'price' => $price]);
+        } catch (Throwable $e) {
+            resp('Taxi buyurtma saqlanmadi: ' . $e->getMessage(), false);
+        }
         break;
 
     case 'my_taxi_rides':

@@ -123,3 +123,25 @@ try {
         db()->exec("ALTER TABLE users ADD COLUMN block_reason VARCHAR(255)");
     }
 } catch (Exception $e) { /* ignore */ }
+
+// taxi_rides jadvali (eski serverlar uchun)
+try {
+    db()->exec("
+        CREATE TABLE IF NOT EXISTS taxi_rides (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            phone VARCHAR(20),
+            from_address TEXT NOT NULL,
+            to_address TEXT NOT NULL,
+            from_lat DOUBLE DEFAULT 0,
+            from_lon DOUBLE DEFAULT 0,
+            to_lat DOUBLE DEFAULT 0,
+            to_lon DOUBLE DEFAULT 0,
+            car_type VARCHAR(20) DEFAULT 'ekonom',
+            price DECIMAL(10,2) DEFAULT 0,
+            status ENUM('new','accepted','on_way','arrived','completed','cancelled') DEFAULT 'new',
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+} catch (Exception $e) { /* ignore */ }
