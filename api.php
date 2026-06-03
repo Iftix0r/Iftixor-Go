@@ -191,7 +191,10 @@ switch ($action) {
         $r->execute([$tgId]);
         $rest = $r->fetch();
         
-        if (!$rest) resp('Restoran topilmadi', false);
+        if (!$rest) {
+            resp(['needs_creation' => true]);
+            break;
+        }
         
         $rid = $rest['id'];
         
@@ -245,6 +248,27 @@ switch ($action) {
             db()->prepare("INSERT INTO products (name, description, price, image, category_id, available, restaurant_id) VALUES (?,?,?,?,?,?,?)")
               ->execute([$name, $desc, $price, $image, $cat, $av, $rest['id']]);
         }
+        resp(['success' => true]);
+        break;
+
+    case 'rest_create':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        
+        // Ensure user doesn't already have one
+        $r = db()->prepare("SELECT id FROM restaurants WHERE owner_tg_id=?");
+        $r->execute([$tgId]);
+        if ($r->fetch()) resp('Sizda allaqachon restoran bor', false);
+        
+        $name = trim($input['name'] ?? '');
+        $phone = trim($input['phone'] ?? '');
+        $address = trim($input['address'] ?? '');
+        
+        if (!$name || !$phone) resp('Nomi va telefon raqam majburiy', false);
+        
+        db()->prepare("INSERT INTO restaurants (name, address, phone, owner_tg_id) VALUES (?,?,?,?)")
+          ->execute([$name, $address, $phone, $tgId]);
+          
         resp(['success' => true]);
         break;
 
