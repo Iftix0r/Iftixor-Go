@@ -778,7 +778,7 @@ if ($userRole === 'seller' && $text && !str_starts_with($text, '/')) {
     }
 }
 
-if (str_starts_with($text, '/start')) {
+if (preg_match('~^/start(?:@\w+)?~i', $text)) {
     $welcome = "👋 Assalomu alaykum, *{$firstName}*!\n\n";
 
     if ($userRole === 'seller') {
@@ -901,4 +901,7 @@ elseif ($text === '📞 Bog\'lanish') {
 
 elseif ($text === 'ℹ️ Haqida') {
     sendMsg($chatId, "ℹ️ *Iftixor Go* — onlayn restoran\n\n🕐 Ish vaqti: 09:00 - 23:00\n⚡ Yetkazib berish: 30-60 daqiqa\n🚚 Yetkazish narxi: 5 000 so'm");
+}
+elseif ($text && str_starts_with($text, '/')) {
+    sendMsg($chatId, "❓ Bu buyruq tanilmadi. Boshlash uchun /start ni yuboring.");
 }
