@@ -209,6 +209,100 @@ function loadDashboard() {
   });
 }
 
+function loadTaxiRides() {
+  if (!adminReady) return;
+  var status = (document.getElementById('taxiFilter') || {}).value || '';
+  var url = withAdmin('admin_taxi_rides' + (status ? '&status=' + status : ''));
+  get(url).then(function(res) {
+    var el = document.getElementById('taxiRidesList');
+    var desc = document.getElementById('taxiCountDesc');
+    if (!res.success || !res.data) {
+      if (el) el.innerHTML = emptyState('Taxi buyurtmalari topilmadi', iconBox());
+      if (desc) desc.textContent = 'Buyurtmalarni qayta yuklang.';
+      return;
+    }
+    if (desc) desc.textContent = res.data.length + ' ta taxi buyurtma topildi.';
+    if (!res.data.length) {
+      el.innerHTML = emptyState('Taxi buyurtmalari yo‘q', iconBox());
+      return;
+    }
+    el.innerHTML = res.data.map(renderTaxiRow).join('');
+  });
+}
+
+function renderTaxiRow(r) {
+  var name = ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || 'Noma\'lum';
+  var statusLabels = {
+    new: 'Yangi',
+    accepted: 'Qabul qilingan',
+    on_way: 'Yo‘lda',
+    arrived: 'Yetib keldi',
+    completed: 'Yakunlandi',
+    cancelled: 'Bekor qilindi'
+  };
+  var statusText = statusLabels[r.status] || r.status;
+  var date = r.created_at ? new Date(r.created_at.replace(' ', 'T')).toLocaleString('ru-RU') : '';
+  return '<div class="taxi-row" onclick="showTaxiDetail(' + r.id + ')">' +
+    '<div class="taxi-row-main">' +
+      '<div class="taxi-row-title">#' + r.id + ' — ' + esc(name) + '</div>' +
+      '<div class="taxi-row-meta">' + esc(statusText) + ' · ' + esc(date) + '</div>' +
+      '<div class="taxi-row-address">' + esc(r.pickup_address || '—') + ' → ' + esc(r.dropoff_address || '—') + '</div>' +
+    '</div>' +
+    '<div class="taxi-row-right"><span class="badge badge-' + (r.status === 'cancelled' ? 'cancelled' : r.status === 'completed' ? 'success' : 'blue') + '">' + esc(statusText) + '</span></div>' +
+  '</div>';
+}
+
+function showTaxiDetail(rideId) {
+  get(withAdmin('admin_taxi_rides&status=' + (document.getElementById('taxiFilter') || {}).value || '')).then(function(res) {
+    if (!res.success || !res.data) return;
+    var ride = res.data.find(function(r) { return r.id == rideId; });
+    if (!ride) return;
+    var statusLabels = {
+      new: 'Yangi',
+      accepted: 'Qabul qilingan',
+      on_way: 'Yo‘lda',
+      arrived: 'Yetib keldi',
+      completed: 'Yakunlandi',
+      cancelled: 'Bekor qilindi'
+    };
+    var body = '<div style="padding:16px 20px">' +
+      '<div style="font-size:18px;font-weight:700">#' + ride.id + ' Taxi buyurtma</div>' +
+      '<div style="margin:10px 0 14px;color:var(--text-dim)">' + (ride.created_at ? new Date(ride.created_at.replace(' ', 'T')).toLocaleString('ru-RU') : '') + '</div>' +
+      '<div style="display:grid;gap:10px;">' +
+        '<div><strong>Mijoz:</strong> ' + esc((ride.first_name || '') + ' ' + (ride.last_name || '')) + '</div>' +
+        '<div><strong>Status:</strong> ' + esc(statusLabels[ride.status] || ride.status) + '</div>' +
+        '<div><strong>Telefon:</strong> ' + esc(ride.phone || '—') + '</div>' +
+        '<div><strong>Manzil:</strong> ' + esc(ride.pickup_address || '—') + '</div>' +
+        '<div><strong>Yetkazish:</strong> ' + esc(ride.dropoff_address || '—') + '</div>' +
+        '<div><strong>Narx:</strong> ' + fmtFull(ride.price || 0) + '</div>' +
+      '</div>' +
+      '<div style="margin-top:18px">' +
+        '<button class="btn-primary" onclick="updateTaxiStatus(' + ride.id + ', \'' + (ride.status === 'new' ? 'accepted' : ride.status === 'accepted' ? 'on_way' : ride.status === 'on_way' ? 'arrived' : ride.status === 'arrived' ? 'completed' : ride.status) + '\')">Keyingi bosqich</button>' +
+      '</div>' +
+      '</div>';
+    document.getElementById('taxiDetailBody').innerHTML = body;
+    document.getElementById('taxiDetailModal').classList.remove('hidden');
+  });
+}
+
+function closeTaxiDetail() {
+  document.getElementById('taxiDetailModal').classList.add('hidden');
+}
+
+function updateTaxiStatus(rideId, status) {
+  if (!status) return;
+  post('admin_update_taxi', { ride_id: rideId, status: status }).then(function(res) {
+    if (res.success) {
+      adminToast('Taxi buyurtma #' + rideId + ' yangilandi', 'success');
+      loadTaxiRides();
+      loadDashboard();
+      closeTaxiDetail();
+    } else {
+      adminToast('Xatolik yuz berdi!', 'error');
+    }
+  });
+}
+
 function loadRevenueChart() {
   var canvas = document.getElementById('revenueChart');
   if (!canvas) return;
