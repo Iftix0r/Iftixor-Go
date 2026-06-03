@@ -870,11 +870,21 @@ body {
   z-index: 10;
   box-shadow: 0 4px 16px rgba(255,107,53,0.25);
 }
-.rest-page-toprow {
+.rest-page-profile-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.rest-page-info-centered {
+  text-align: center;
+  margin-top: 8px;
+}
+.rest-page-nav {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
 }
 .rest-page-back {
   background: rgba(255,255,255,0.2);
@@ -891,38 +901,34 @@ body {
 }
 .rest-page-back:active { background: rgba(255,255,255,0.35); }
 .rest-page-avatar-ring {
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  padding: 2.5px;
+  padding: 3px;
   background: linear-gradient(white, white) padding-box,
               linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.5) 100%) border-box;
-  border: 2.5px solid transparent;
+  border: 3px solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 .rest-page-avatar {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.25);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.5px;
 }
-.rest-page-info {
-  flex: 1;
-  min-width: 0;
-}
 .rest-page-name {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #fff;
   white-space: nowrap;
@@ -936,6 +942,7 @@ body {
 }
 .rest-page-search-wrap {
   position: relative;
+  flex: 1;
 }
 .rest-page-search-wrap .search-input {
   padding-left: 34px;
