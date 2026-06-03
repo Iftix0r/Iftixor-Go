@@ -209,6 +209,9 @@ function updateHeader() {
   const app = $('app');
   if (app) app.classList.toggle('mode-hub', onHub);
 
+  const appHeader = $('appHeader');
+  if (appHeader) appHeader.style.display = page === 'restaurant' ? 'none' : 'flex';
+
   if (onHub) {
     if (cartBtn) cartBtn.classList.add('hidden');
     if (name) name.textContent = 'Iftixor Go';
