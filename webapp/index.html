@@ -157,7 +157,13 @@
 
   <!-- TAXI: Buyurtmalarim -->
   <div id="page-taxi-orders" class="page">
-    <div class="page-title">🚖 Buyurtmalarim</div>
+    <div class="taxi-orders-head">
+      <div class="page-title" style="padding-bottom:0">🚖 Buyurtmalarim</div>
+      <div class="taxi-orders-tabs">
+        <button type="button" class="taxi-tab active" onclick="filterTaxiOrders('all', this)">Barchasi</button>
+        <button type="button" class="taxi-tab" onclick="filterTaxiOrders('active', this)">Faol</button>
+      </div>
+    </div>
     <div id="taxiOrderHistory"></div>
   </div>
 
@@ -233,11 +239,19 @@
 
     <div id="taxiRecentWrap" class="taxi-recent hidden"></div>
 
+    <div class="taxi-popular">
+      <div class="taxi-recent-label">Tez tanlash</div>
+      <div class="taxi-popular-chips" id="taxiPopularChips"></div>
+    </div>
+
     <div class="section-title" style="padding-top:4px">Mashina turi</div>
     <div class="taxi-car-types" id="taxiCarTypes"></div>
 
     <div id="taxiPriceBar" class="taxi-price-bar">
-      <span class="taxi-price-label">Taxminiy narx</span>
+      <div>
+        <span class="taxi-price-label">Taxminiy narx</span>
+        <div class="taxi-price-hint" id="taxiPriceHint"></div>
+      </div>
       <span class="taxi-price-val" id="taxiPriceVal">—</span>
     </div>
 
@@ -256,9 +270,9 @@
       </div>
     </div>
 
-    <div class="taxi-submit-wrap">
+    <div class="taxi-submit-wrap taxi-submit-sticky">
       <button type="button" class="btn-primary btn-taxi-submit" id="taxiSubmitBtn" onclick="submitTaxi()">
-        <span>Taxi chaqirish</span>
+        <span>🚕 Taxi chaqirish</span>
         <span class="btn-taxi-price" id="taxiSubmitPrice"></span>
       </button>
     </div>
@@ -271,10 +285,12 @@
       <div id="taxiSuccessRideId" class="success-id"></div>
       <div id="taxiSuccessInfo" class="taxi-success-info"></div>
       <div id="taxiSuccessPrice" class="taxi-success-price"></div>
+      <div id="taxiSuccessTimeline" class="taxi-timeline"></div>
       <div id="taxiSuccessStatus" class="success-status-badge status-new">⏳ Haydovchi qidirilmoqda...</div>
       <div class="success-desc">Operator tez orada bog'lanadi 📞</div>
       <div class="success-actions" style="margin-top:20px">
         <button class="btn-primary" onclick="showTaxiPage('orders')">Buyurtmalarim</button>
+        <button class="btn-secondary btn-taxi-cancel-ride hidden" id="taxiCancelRideBtn" onclick="cancelActiveTaxiRide()" style="margin-top:8px">Buyurtmani bekor qilish</button>
         <button class="btn-secondary" onclick="showTaxiPage('taxi')" style="margin-top:8px">Yana taxi chaqirish</button>
       </div>
     </div>
@@ -375,6 +391,6 @@
 </div>
 
 <div id="toast" class="toast hidden"></div>
-<script src="app.js?v=2.6"></script>
+<script src="app.js?v=2.7"></script>
 </body>
 </html>

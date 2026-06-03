@@ -10,13 +10,34 @@ const taxiState = {
   carType: 'ekonom',
   price: 0,
   distKm: 0,
-  fromLat: 0,
-  fromLon: 0,
+  fromLat: 0, fromLon: 0, toLat: 0, toLon: 0,
+  allPrices: {},
+  geocoded: false,
+  lastRideId: null,
+  ordersFilter: 'all',
   tariffs: {
     ekonom:  { label: 'Ekonom',  icon: '🚗', min: 7000 },
     comfort: { label: 'Comfort', icon: '🚙', min: 12000 },
     minivan: { label: 'Minivan', icon: '🚐', min: 18000 },
   },
+};
+
+const TAXI_POPULAR = [
+  { label: '✈️ Aeroport', field: 'to', value: 'Toshkent xalqaro aeroporti' },
+  { label: '🚉 Vokzal', field: 'to', value: 'Toshkent vokzali' },
+  { label: '🏥 Shifoxona', field: 'to', value: 'Shifoxona' },
+  { label: '🛒 Bozor', field: 'to', value: 'Bozor' },
+  { label: '🏫 Universitet', field: 'to', value: 'Universitet' },
+  { label: '🏠 Uyga', field: 'to', value: 'Uy' },
+];
+
+const TAXI_STATUS = {
+  new:       { text: '🆕 Yangi',           step: 0 },
+  accepted:  { text: '✅ Qabul qilindi',    step: 1 },
+  on_way:    { text: '🚕 Yo\'lda',          step: 2 },
+  arrived:   { text: '📍 Yetib keldi',      step: 3 },
+  completed: { text: '✓ Tugallandi',        step: 4 },
+  cancelled: { text: '❌ Bekor',             step: -1 },
 };
 const $ = id => document.getElementById(id);
 
@@ -289,8 +310,8 @@ function showTaxiPage(name) {
   const pageMap = { taxi: 'taxi', orders: 'taxi-orders', profile: 'taxi-profile' };
   showPage(pageMap[name] || name);
   if (name === 'taxi')    { initTaxiPage(); setTaxiNav('navTaxiMain'); }
-  if (name === 'orders') { loadTaxiRideHistory(); setTaxiNav('navTaxiOrders'); stopTaxiPolling(); }
-  if (name === 'profile'){ loadTaxiProfile(); setTaxiNav('navTaxiProfile'); stopTaxiPolling(); }
+  if (name === 'orders') { loadTaxiRideHistory(); setTaxiNav('navTaxiOrders'); }
+  if (name === 'profile'){ loadTaxiProfile(); setTaxiNav('navTaxiProfile'); }
   updateHeader();
 }
 
@@ -1018,46 +1039,80 @@ async function loadTaxiRideHistory() {
   if (!el) return;
 
   if (!res.success || !res.data?.length) {
-    el.innerHTML = `
-      <div class="orders-empty" style="margin:0 16px">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="#c7c7cc" stroke-width="1.5"/><circle cx="7" cy="16" r="1.5" fill="#c7c7cc"/><circle cx="17" cy="16" r="1.5" fill="#c7c7cc"/></svg>
-        <p>Taxi buyurtmalari yo'q</p>
-        <small style="color:var(--subtext);margin-top:6px;display:block">Birinchi safaringizni buyurtma qiling</small>
-      </div>`;
+    el.innerHTML = `<div class="orders-empty" style="margin:0 16px">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="#c7c7cc" stroke-width="1.5"/></svg>
+      <p>Taxi buyurtmalari yo'q</p>
+    </div>`;
     return;
   }
 
-  const sMap = {
-    new: '🆕 Yangi', accepted: '✅ Qabul qilindi', on_way: '🚕 Yo\'lda',
-    arrived: '📍 Yetib keldi', completed: '✓ Tugallandi', cancelled: '❌ Bekor'
-  };
+  let rides = res.data;
+  if (taxiState.ordersFilter === 'active') {
+    rides = rides.filter(r => !['completed', 'cancelled'].includes(r.status));
+  }
+  if (!rides.length) {
+    el.innerHTML = `<div class="orders-empty" style="margin:0 16px"><p>Faol buyurtmalar yo'q</p></div>`;
+    return;
+  }
+
   const cMap = {
     new: 's-new', accepted: 's-confirmed', on_way: 's-cooking',
     arrived: 's-cooking', completed: 's-delivered', cancelled: 's-cancelled'
   };
-  const typeMap = { ekonom: '🚗 Ekonom', comfort: '🚙 Comfort', minivan: '🚐 Minivan' };
 
-  el.innerHTML = res.data.map(r => {
+  el.innerHTML = rides.map(r => {
+    const st = TAXI_STATUS[r.status] || { text: r.status, step: 0 };
     const d = r.created_at ? new Date(r.created_at.replace(' ', 'T')) : null;
     const date = d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
     const isActive = !['completed', 'cancelled'].includes(r.status);
     const price = +r.price > 0 ? fmt(r.price) : '—';
+    const typeMap = { ekonom: '🚗', comfort: '🚙', minivan: '🚐' };
+    const mapsFrom = r.from_address ? `https://maps.google.com/?q=${encodeURIComponent(r.from_address)}` : '';
     return `
     <div class="order-hist-item taxi-hist-item${isActive ? ' order-active' : ''}" style="margin:0 16px 10px">
       <div class="order-hist-head">
-        <span class="order-hist-id">#${r.id}</span>
-        <span class="status-badge ${cMap[r.status] || 's-new'}">${sMap[r.status] || r.status}</span>
+        <span class="order-hist-id">#${r.id} ${typeMap[r.car_type] || '🚖'}</span>
+        <span class="status-badge ${cMap[r.status] || 's-new'}">${st.text}</span>
       </div>
       <div class="taxi-hist-route">
         <div class="taxi-hist-row"><span class="taxi-dot taxi-dot-from"></span>${esc(r.from_address || '—')}</div>
         <div class="taxi-hist-row"><span class="taxi-dot taxi-dot-to"></span>${esc(r.to_address || '—')}</div>
       </div>
       <div class="order-hist-foot">
-        <span class="order-hist-date">${typeMap[r.car_type] || '🚖'} · ${date}</span>
+        <span class="order-hist-date">${date}</span>
         <span class="order-hist-total">${price}</span>
+      </div>
+      <div class="taxi-hist-actions">
+        ${mapsFrom ? `<a href="${mapsFrom}" target="_blank" class="taxi-hist-link">🗺 Xarita</a>` : ''}
+        ${isActive ? `<button type="button" class="taxi-hist-cancel" onclick="cancelTaxiRide(${r.id})">Bekor qilish</button>` : ''}
       </div>
     </div>`;
   }).join('');
+}
+
+function filterTaxiOrders(filter, btn) {
+  taxiState.ordersFilter = filter;
+  document.querySelectorAll('.taxi-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadTaxiRideHistory();
+}
+
+async function cancelTaxiRide(rideId) {
+  if (!confirm('#' + rideId + ' buyurtmani bekor qilasizmi?')) return;
+  const res = await post('cancel_taxi_ride', { ride_id: rideId });
+  if (res.success) {
+    playSound('success');
+    toast('Buyurtma bekor qilindi');
+    loadTaxiRideHistory();
+    checkTaxiActiveRide();
+    if (taxiState.lastRideId == rideId) pollTaxiRideStatus(rideId);
+  } else {
+    toast('❌ ' + apiErrorMessage(res, 'Bekor qilinmadi'));
+  }
+}
+
+function cancelActiveTaxiRide() {
+  if (taxiState.lastRideId) cancelTaxiRide(taxiState.lastRideId);
 }
 
 // ── ORDER HISTORY (ovqat) ──
@@ -1196,32 +1251,56 @@ async function get(action) {
 }
 
 // ── TAXI ──
+function renderTaxiPopular() {
+  const wrap = $('taxiPopularChips');
+  if (!wrap) return;
+  wrap.innerHTML = TAXI_POPULAR.map((p, i) =>
+    `<button type="button" class="taxi-chip" onclick="applyTaxiPopular(${i})">${p.label}</button>`
+  ).join('');
+}
+
+function applyTaxiPopular(idx) {
+  const p = TAXI_POPULAR[idx];
+  if (!p) return;
+  const inp = p.field === 'from' ? $('taxiFrom') : $('taxiTo');
+  if (inp) inp.value = p.value;
+  updateTaxiPrice();
+  playSound('tap');
+}
+
 function renderTaxiCarTypes() {
   const wrap = $('taxiCarTypes');
   if (!wrap) return;
-  wrap.innerHTML = Object.entries(taxiState.tariffs).map(([key, t]) => `
+  wrap.innerHTML = Object.entries(taxiState.tariffs).map(([key, t]) => {
+    const live = taxiState.allPrices[key]?.price;
+    const priceLabel = live ? fmt(live) : `dan ${fmt(t.min || 7000)}`;
+    return `
     <button type="button" class="taxi-car-card${taxiState.carType === key ? ' active' : ''}" onclick="selectTaxiCar('${key}')">
       <span class="taxi-car-icon">${t.icon || '🚗'}</span>
       <span class="taxi-car-name">${esc(t.label || key)}</span>
-      <span class="taxi-car-from">dan ${fmt(t.min || 7000)}</span>
-    </button>`).join('');
+      <span class="taxi-car-from">${priceLabel}</span>
+    </button>`;
+  }).join('');
 }
 
 function selectTaxiCar(type) {
   taxiState.carType = type;
+  taxiState.price = taxiState.allPrices[type]?.price || taxiState.tariffs[type]?.min || 0;
   renderTaxiCarTypes();
-  updateTaxiPrice();
+  updateTaxiPriceUI();
   playSound('tap');
 }
 
 function updateTaxiPriceUI() {
   const price = taxiState.price || taxiState.tariffs[taxiState.carType]?.min || 0;
   const val = $('taxiPriceVal');
+  const hint = $('taxiPriceHint');
   const btnPrice = $('taxiSubmitPrice');
-  const dist = taxiState.distKm > 0 ? ` · ~${taxiState.distKm} km` : '';
-  const label = taxiState.distKm > 0 ? fmt(price) : `dan ${fmt(price)}`;
-  if (val) val.textContent = label + dist;
-  if (btnPrice) btnPrice.textContent = price ? fmt(price) : '';
+  const dist = taxiState.distKm > 0 ? `~${taxiState.distKm} km` : '';
+  const label = taxiState.geocoded && taxiState.distKm > 0 ? fmt(price) : `dan ${fmt(price)}`;
+  if (val) val.textContent = label;
+  if (hint) hint.textContent = dist || (taxiState.geocoded ? '' : 'Manzil kiriting — narx hisoblanadi');
+  if (btnPrice) btnPrice.textContent = fmt(price);
 }
 
 async function updateTaxiPrice() {
@@ -1232,40 +1311,57 @@ async function updateTaxiPrice() {
   if (!from || !to) {
     taxiState.price = min;
     taxiState.distKm = 0;
+    taxiState.geocoded = false;
+    taxiState.allPrices = {};
     updateTaxiPriceUI();
+    renderTaxiCarTypes();
     return;
   }
 
+  const priceBar = $('taxiPriceBar');
+  if (priceBar) priceBar.classList.add('loading');
+
   const res = await post('taxi_price', {
-    car_type: taxiState.carType,
+    from_address: from,
+    to_address: to,
     from_lat: taxiState.fromLat,
     from_lon: taxiState.fromLon,
-    to_lat: 0,
-    to_lon: 0,
+    to_lat: taxiState.toLat,
+    to_lon: taxiState.toLon,
+    car_type: taxiState.carType,
   });
 
+  if (priceBar) priceBar.classList.remove('loading');
+
   if (res.success && res.data?.prices) {
+    taxiState.allPrices = res.data.prices;
+    taxiState.distKm = res.data.dist_km || 0;
+    taxiState.geocoded = !!res.data.geocoded;
+    if (res.data.from_lat) { taxiState.fromLat = res.data.from_lat; taxiState.fromLon = res.data.from_lon; }
+    if (res.data.to_lat)   { taxiState.toLat = res.data.to_lat;     taxiState.toLon = res.data.to_lon; }
     const p = res.data.prices[taxiState.carType];
     taxiState.price = p?.price || min;
-    taxiState.distKm = res.data.dist_km || 0;
   } else {
     taxiState.price = min;
     taxiState.distKm = 0;
+    taxiState.geocoded = false;
+    taxiState.allPrices = {};
   }
   updateTaxiPriceUI();
+  renderTaxiCarTypes();
 }
 
 function onTaxiRouteChange() {
   clearTimeout(onTaxiRouteChange._t);
-  onTaxiRouteChange._t = setTimeout(updateTaxiPrice, 400);
+  onTaxiRouteChange._t = setTimeout(updateTaxiPrice, 600);
 }
 
 function swapTaxiRoute() {
   const f = $('taxiFrom'), t = $('taxiTo');
   if (!f || !t) return;
-  const tmp = f.value;
-  f.value = t.value;
-  t.value = tmp;
+  [f.value, t.value] = [t.value, f.value];
+  [taxiState.fromLat, taxiState.toLat] = [taxiState.toLat, taxiState.fromLat];
+  [taxiState.fromLon, taxiState.toLon] = [taxiState.toLon, taxiState.fromLon];
   playSound('tap');
   updateTaxiPrice();
 }
@@ -1294,6 +1390,8 @@ function fillTaxiFromProfile() {
     if (!a) return toast('Profilda manzil yo\'q — avval saqlang');
     const inp = $('taxiFrom');
     if (inp) inp.value = a;
+    taxiState.fromLat = 0;
+    taxiState.fromLon = 0;
     updateTaxiPrice();
     toast('✓ Manzil qo\'yildi');
   });
@@ -1346,6 +1444,8 @@ function applyTaxiRecent(idx) {
   if (!it) return;
   const inp = it.type === 'from' ? $('taxiFrom') : $('taxiTo');
   if (inp) inp.value = it.text;
+  if (it.type === 'from') { taxiState.fromLat = 0; taxiState.fromLon = 0; }
+  else { taxiState.toLat = 0; taxiState.toLon = 0; }
   updateTaxiPrice();
 }
 
@@ -1359,13 +1459,13 @@ async function checkTaxiActiveRide() {
     banner.classList.add('hidden');
     return;
   }
-  const sMap = { new: 'Yangi', accepted: 'Qabul qilindi', on_way: 'Yo\'lda', arrived: 'Yetib keldi' };
+  const st = TAXI_STATUS[active.status] || { text: active.status };
   banner.classList.remove('hidden');
   banner.innerHTML = `
     <div class="taxi-active-inner" onclick="showTaxiPage('orders')">
       <span class="taxi-active-pulse">🚕</span>
       <div>
-        <div class="taxi-active-title">#${active.id} — ${sMap[active.status] || active.status}</div>
+        <div class="taxi-active-title">#${active.id} — ${st.text}</div>
         <div class="taxi-active-route">${esc(active.from_address)} → ${esc(active.to_address)}</div>
       </div>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -1374,6 +1474,7 @@ async function checkTaxiActiveRide() {
 
 function initTaxiPage() {
   renderTaxiCarTypes();
+  renderTaxiPopular();
   const ph = $('taxiProfilePhone')?.value?.trim() || $('profilePhone')?.value?.trim() || '';
   if (ph && $('taxiPhone') && !$('taxiPhone').value) $('taxiPhone').value = ph;
   updateTaxiPrice();
@@ -1385,29 +1486,46 @@ function initTaxiPage() {
       const page = getActivePageId();
       if (page === 'taxi') checkTaxiActiveRide();
       if (page === 'taxi-success' && taxiState.lastRideId) pollTaxiRideStatus(taxiState.lastRideId);
+      if (page === 'taxi-orders') loadTaxiRideHistory();
     }, 8000);
   }
 }
 
-function stopTaxiPolling() { /* interval global, lightweight */ }
+function renderTaxiTimeline(status) {
+  const el = $('taxiSuccessTimeline');
+  if (!el) return;
+  const steps = ['Qidirilmoqda', 'Qabul qilindi', 'Yo\'lda', 'Yetib keldi', 'Tugallandi'];
+  const current = (TAXI_STATUS[status] || {}).step ?? 0;
+  if (status === 'cancelled') {
+    el.innerHTML = `<div class="taxi-timeline-cancel">❌ Buyurtma bekor qilindi</div>`;
+    return;
+  }
+  el.innerHTML = `<div class="taxi-timeline-steps">${steps.map((s, i) =>
+    `<div class="tt-step${i <= current ? ' done' : ''}${i === current ? ' current' : ''}">
+      <div class="tt-dot"></div><span>${s}</span>
+    </div>`
+  ).join('')}</div>`;
+}
 
 async function pollTaxiRideStatus(rideId) {
   const res = await get(`my_taxi_rides&user_id=${tgUser?.id || 0}`);
   if (!res.success) return;
   const ride = res.data?.find(r => r.id == rideId);
   const el = $('taxiSuccessStatus');
+  const cancelBtn = $('taxiCancelRideBtn');
   if (!ride || !el) return;
-  const sMap = {
-    new: ['⏳ Haydovchi qidirilmoqda...', 'status-new'],
-    accepted: ['✅ Haydovchi qabul qildi', 's-confirmed'],
-    on_way: ['🚕 Haydovchi yo\'lda', 's-cooking'],
-    arrived: ['📍 Haydovchi yetib keldi', 's-cooking'],
-    completed: ['✓ Safar tugallandi', 's-delivered'],
-    cancelled: ['❌ Bekor qilindi', 's-cancelled'],
-  };
-  const [text, cls] = sMap[ride.status] || [ride.status, 's-new'];
-  el.textContent = text;
-  el.className = 'success-status-badge ' + cls;
+
+  const st = TAXI_STATUS[ride.status] || { text: ride.status, step: 0 };
+  el.textContent = st.text;
+  el.className = 'success-status-badge ' + (
+    ride.status === 'cancelled' ? 's-cancelled' :
+    ride.status === 'completed' ? 's-delivered' :
+    ride.status === 'new' ? 's-new' : 's-confirmed'
+  );
+  renderTaxiTimeline(ride.status);
+  if (cancelBtn) {
+    cancelBtn.classList.toggle('hidden', ['completed', 'cancelled'].includes(ride.status));
+  }
 }
 
 async function submitTaxi() {
@@ -1443,11 +1561,13 @@ async function submitTaxi() {
     price,
     from_lat: taxiState.fromLat,
     from_lon: taxiState.fromLon,
+    to_lat: taxiState.toLat,
+    to_lon: taxiState.toLon,
   });
 
   if (btn) {
     btn.disabled = false;
-    btn.innerHTML = btnHtml || `<span>Taxi chaqirish</span><span class="btn-taxi-price" id="taxiSubmitPrice"></span>`;
+    btn.innerHTML = btnHtml;
     updateTaxiPriceUI();
   }
 
@@ -1461,8 +1581,7 @@ async function submitTaxi() {
     $('taxiFrom').value = '';
     $('taxiTo').value   = '';
     $('taxiNote').value = '';
-    taxiState.fromLat = 0;
-    taxiState.fromLon = 0;
+    taxiState.fromLat = taxiState.fromLon = taxiState.toLat = taxiState.toLon = 0;
 
     setText('taxiSuccessRideId', rideId ? '#' + rideId : '');
     const info = $('taxiSuccessInfo');
@@ -1474,10 +1593,14 @@ async function submitTaxi() {
       </div>`;
     const priceEl = $('taxiSuccessPrice');
     if (priceEl) priceEl.textContent = finalPrice ? fmt(finalPrice) : '';
+    const cancelBtn = $('taxiCancelRideBtn');
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    renderTaxiTimeline('new');
     pollTaxiRideStatus(rideId);
     showPage('taxi-success');
     setTaxiNav('navTaxiMain');
     checkTaxiActiveRide();
+    renderTaxiRecent();
   } else {
     playSound('error');
     toast('❌ ' + apiErrorMessage(res, 'Taxi buyurtma yuborilmadi'));

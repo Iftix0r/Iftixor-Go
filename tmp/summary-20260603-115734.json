@@ -1,0 +1,4 @@
+{
+  "summary": "User asked to improve taxi again. Added server-side geocoding (Nominatim) for real distance-based pricing, cancel_taxi_ride API, popular destination chips, live prices on car type cards, sticky submit button, orders page with Active/All tabs and cancel/map actions, success page with status timeline and cancel button, auto price recalculation when addresses entered.",
+  "current_status": "Taxi module v2.7 ready: geocoded pricing, cancellation, timeline UI, improved orders. Deploy api.php, webapp (index.html, app.js v2.7, style.css)."
+}

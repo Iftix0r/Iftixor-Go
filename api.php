@@ -47,6 +47,40 @@ function tgReq(string $method, array $params = []): array {
     return json_decode($res, true) ?? [];
 }
 
+function geocodeAddress(string $address): ?array {
+    $address = trim($address);
+    if (strlen($address) < 3 || $address === 'Joriy joylashuvim') return null;
+    $url = 'https://nominatim.openstreetmap.org/search?q=' . urlencode($address . ', O\'zbekiston')
+         . '&format=json&limit=1&countrycodes=uz';
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 6,
+        CURLOPT_HTTPHEADER => ['User-Agent: IftixorGo-Taxi/1.0'],
+        CURLOPT_SSL_VERIFYPEER => false,
+    ]);
+    $res = curl_exec($ch);
+    curl_close($ch);
+    $data = json_decode($res, true);
+    if (empty($data[0]['lat'])) return null;
+    return ['lat' => (float)$data[0]['lat'], 'lon' => (float)$data[0]['lon']];
+}
+
+function calcTaxiPrices(float $distKm): array {
+    $tariffs = [
+        'ekonom'  => ['start' => 5000,  'per_km' => 1500, 'label' => 'Ekonom',  'min' => 7000],
+        'comfort' => ['start' => 8000,  'per_km' => 2200, 'label' => 'Comfort', 'min' => 12000],
+        'minivan' => ['start' => 12000, 'per_km' => 3000, 'label' => 'Minivan', 'min' => 18000],
+    ];
+    $prices = [];
+    foreach ($tariffs as $key => $t) {
+        $price = $t['start'] + round($distKm * $t['per_km'] / 500) * 500;
+        $price = max($price, $t['min']);
+        $prices[$key] = ['price' => $price, 'label' => $t['label'], 'dist_km' => round($distKm, 1)];
+    }
+    return $prices;
+}
+
 switch ($action) {
 
     // ── USER ──
@@ -426,14 +460,22 @@ switch ($action) {
 // ══════════ TAXI ══════════
 
     case 'taxi_price':
-        // Masofaga qarab narx hisoblash
         $fromLat = (float)($input['from_lat'] ?? 0);
         $fromLon = (float)($input['from_lon'] ?? 0);
         $toLat   = (float)($input['to_lat']   ?? 0);
         $toLon   = (float)($input['to_lon']   ?? 0);
-        $type    = $input['car_type'] ?? 'ekonom';
+        $fromAddr = trim($input['from_address'] ?? '');
+        $toAddr   = trim($input['to_address']   ?? '');
 
-        // Haversine formula - km
+        if (!$fromLat && $fromAddr) {
+            $g = geocodeAddress($fromAddr);
+            if ($g) { $fromLat = $g['lat']; $fromLon = $g['lon']; }
+        }
+        if (!$toLat && $toAddr) {
+            $g = geocodeAddress($toAddr);
+            if ($g) { $toLat = $g['lat']; $toLon = $g['lon']; }
+        }
+
         $dist = 0;
         if ($fromLat && $toLat) {
             $R    = 6371;
@@ -443,20 +485,16 @@ switch ($action) {
             $dist = $R * 2 * atan2(sqrt($a), sqrt(1-$a));
         }
 
-        // Tarif (so'm/km) + boshlang'ich narx
-        $tariffs = [
-            'ekonom'  => ['start' => 5000,  'per_km' => 1500, 'label' => 'Ekonom',  'min' => 7000],
-            'comfort' => ['start' => 8000,  'per_km' => 2200, 'label' => 'Comfort',  'min' => 12000],
-            'minivan' => ['start' => 12000, 'per_km' => 3000, 'label' => 'Minivan',  'min' => 18000],
-        ];
-
-        $prices = [];
-        foreach ($tariffs as $key => $t) {
-            $price = $t['start'] + round($dist * $t['per_km'] / 500) * 500;
-            $price = max($price, $t['min']);
-            $prices[$key] = ['price' => $price, 'label' => $t['label'], 'dist_km' => round($dist, 1)];
-        }
-        resp(['prices' => $prices, 'dist_km' => round($dist, 1)]);
+        $prices = calcTaxiPrices($dist);
+        resp([
+            'prices'    => $prices,
+            'dist_km'   => round($dist, 1),
+            'from_lat'  => $fromLat,
+            'from_lon'  => $fromLon,
+            'to_lat'    => $toLat,
+            'to_lon'    => $toLon,
+            'geocoded'  => ($fromLat && $toLat && $dist > 0),
+        ]);
         break;
 
     case 'taxi_order':
@@ -480,6 +518,16 @@ switch ($action) {
 
             if (!$from || !$to || !$phone) resp('Manzil va telefon kerak', false);
             if (!$userId) resp('Foydalanuvchi topilmadi', false);
+
+            if (!$fromLat && $from) { $g = geocodeAddress($from); if ($g) { $fromLat = $g['lat']; $fromLon = $g['lon']; } }
+            if (!$toLat && $to)     { $g = geocodeAddress($to);   if ($g) { $toLat = $g['lat'];   $toLon = $g['lon']; } }
+            if ($price <= 0 && $fromLat && $toLat) {
+                $R = 6371; $dLat = deg2rad($toLat - $fromLat); $dLon = deg2rad($toLon - $fromLon);
+                $a = sin($dLat/2)*sin($dLat/2) + cos(deg2rad($fromLat))*cos(deg2rad($toLat))*sin($dLon/2)*sin($dLon/2);
+                $dist = $R * 2 * atan2(sqrt($a), sqrt(1-$a));
+                $prices = calcTaxiPrices($dist);
+                $price = (float)($prices[$type]['price'] ?? $price);
+            }
 
             $chk = db()->prepare("SELECT is_blocked FROM users WHERE id=?");
             $chk->execute([$userId]);
@@ -534,9 +582,30 @@ switch ($action) {
         $auth   = requireTelegramUser();
         $userId = (int)($_GET['user_id'] ?? 0);
         if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
-        $s = db()->prepare("SELECT * FROM taxi_rides WHERE user_id=? ORDER BY created_at DESC LIMIT 10");
+        $s = db()->prepare("SELECT * FROM taxi_rides WHERE user_id=? ORDER BY created_at DESC LIMIT 15");
         $s->execute([$userId]);
         resp($s->fetchAll());
+        break;
+
+    case 'cancel_taxi_ride':
+        try {
+            $auth   = requireTelegramUser();
+            $userId = (int)$auth['id'];
+            $rideId = (int)($input['ride_id'] ?? 0);
+            if (!$rideId) resp('ID kerak', false);
+
+            $s = db()->prepare("SELECT * FROM taxi_rides WHERE id=? AND user_id=?");
+            $s->execute([$rideId, $userId]);
+            $ride = $s->fetch();
+            if (!$ride) resp('Buyurtma topilmadi', false);
+            if (in_array($ride['status'], ['completed', 'cancelled'], true)) {
+                resp('Bu buyurtmani bekor qilib bo\'lmaydi', false);
+            }
+            db()->prepare("UPDATE taxi_rides SET status='cancelled' WHERE id=?")->execute([$rideId]);
+            resp(['cancelled' => true, 'ride_id' => $rideId]);
+        } catch (Throwable $e) {
+            resp('Bekor qilinmadi: ' . $e->getMessage(), false);
+        }
         break;
 
     case 'admin_taxi_rides':
