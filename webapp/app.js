@@ -1,7 +1,7 @@
 const API = new URL('../api.php', window.location.href).href;
 const tg = window.Telegram ? window.Telegram.WebApp : null;
 let tgUser = null;
-let menu = [], cart = [], activeCat = 0, modalProduct = null, modalQty = 1;
+let menu = [], cart = [], activeCat = 0, activeRestaurant = null, modalProduct = null, modalQty = 1;
 let deliveryFee = 5000;
 let orderPollTimer = null;
 let taxiPollTimer = null;
@@ -454,7 +454,8 @@ function filterCat(catId) {
 function filterProducts(q) {
   const query = q.toLowerCase().trim();
   if (!query) { renderProducts(activeCat); return; }
-  const all = menu.reduce((acc, c) => acc.concat(c.products || []), []);
+  let all = menu.reduce((acc, c) => acc.concat(c.products || []), []);
+  if (activeRestaurant) all = all.filter(p => p.restaurant_id == activeRestaurant);
   const filtered = all.filter(p =>
     (p.name || '').toLowerCase().includes(query) ||
     (p.description || '').toLowerCase().includes(query)
@@ -471,9 +472,14 @@ function filterProducts(q) {
 function renderProducts(catId) {
   const grid = $('productGrid');
   grid.innerHTML = '';
-  const all = catId === 0
+  let all = catId === 0
     ? menu.reduce((acc, c) => acc.concat(c.products || []), [])
     : (menu.find(c => c.id == catId)?.products || []);
+  
+  if (activeRestaurant) {
+    all = all.filter(p => p.restaurant_id == activeRestaurant);
+  }
+
   if (!all.length) {
     grid.innerHTML = `<div class="empty-state-msg">Mahsulot yo'q</div>`;
     return;
@@ -522,6 +528,10 @@ function makeProductCard(p) {
     const rest = document.createElement('div');
     rest.className = 'product-restaurant';
     rest.innerHTML = '🏪 ' + esc(p.restaurant_name);
+    rest.onclick = (e) => {
+      e.stopPropagation();
+      setRestaurantFilter(p.restaurant_id, p.restaurant_name);
+    };
     body.appendChild(rest);
   }
 
@@ -655,6 +665,28 @@ function quickAdd(id) {
   addToCart(p, 1);
   playSound('add');
   toast(`✓ ${p.name} qo'shildi`);
+  renderProducts(activeCat);
+}
+
+function setRestaurantFilter(id, name) {
+  activeRestaurant = id;
+  const si = $('searchInput');
+  if (si) si.value = '';
+  $('restFilterBar').innerHTML = `
+    <div class="rest-filter-content">
+      <span>🏪 <b>${esc(name)}</b> restoranining barcha mahsulotlari</span>
+      <button onclick="clearRestaurantFilter()">✕</button>
+    </div>
+  `;
+  $('restFilterBar').classList.remove('hidden');
+  renderProducts(activeCat);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearRestaurantFilter() {
+  activeRestaurant = null;
+  $('restFilterBar').classList.add('hidden');
+  $('restFilterBar').innerHTML = '';
   renderProducts(activeCat);
 }
 
