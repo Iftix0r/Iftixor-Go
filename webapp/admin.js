@@ -138,6 +138,7 @@ function switchTab(name) {
   else if (name === 'products') loadProducts();
   else if (name === 'categories') loadCategories();
   else if (name === 'restaurants') loadRestaurants();
+  else if (name === 'roles') loadRoles();
   else if (name === 'taxi') loadTaxiRides();
   // Mobil sidebar yopish
   var sb = document.getElementById('sidebar');
@@ -888,6 +889,108 @@ function deleteCategory(id, name) {
     else adminToast(typeof res.data === 'string' ? res.data : 'Xatolik!', 'error');
   });
 }
+// ── ROLES ──
+var allRolesUsers = [];
+var rolesSearchTimer = null;
+
+function loadRoles() {
+  get(withAdmin('admin_users')).then(function(res) {
+    if (!res.success || !res.data) return;
+    allRolesUsers = res.data;
+    renderRoles(applyRolesFilter(allRolesUsers));
+  });
+}
+
+function applyRolesFilter(list) {
+  var filter = (document.getElementById('rolesFilter') || {}).value || '';
+  if (filter) return list.filter(function(u) { return u.role === filter; });
+  return list;
+}
+
+function searchRoles() {
+  clearTimeout(rolesSearchTimer);
+  rolesSearchTimer = setTimeout(function() {
+    var q = ((document.getElementById('rolesSearch') || {}).value || '').toLowerCase().trim();
+    var filtered = applyRolesFilter(q ? allRolesUsers.filter(function(u) {
+      return ((u.first_name||'')+' '+(u.last_name||'')+' '+(u.username||'')).toLowerCase().includes(q);
+    }) : allRolesUsers);
+    renderRoles(filtered);
+  }, 250);
+}
+
+function renderRoles(list) {
+  var el = document.getElementById('rolesList');
+  if (!el) return;
+  if (!list || !list.length) { el.innerHTML = emptyState('Foydalanuvchi topilmadi', iconUsers()); return; }
+  var roleLabels = { admin: '⚙️ Admin', seller: '🏪 Sotuvchi', user: '👤 User' };
+  var roleColors = { admin: 'rgba(239,68,68,.12)', seller: 'rgba(255,107,53,.12)', user: 'rgba(99,102,241,.1)' };
+  el.innerHTML = list.map(function(u) {
+    var name = ((u.first_name||'')+' '+(u.last_name||'')).trim() || 'Noma\'lum';
+    var role = u.role || 'user';
+    var roleLabel = roleLabels[role] || role;
+    var photo = u.photo_url
+      ? '<img src="'+u.photo_url+'" class="user-card-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
+      : '<img src="'+avatarUrl(u.first_name)+'" class="user-card-photo">';
+    return '<div class="user-card" onclick="showRoleModal('+u.id+')" style="cursor:pointer">' +
+      photo +
+      '<div class="user-card-info">' +
+        '<div class="user-card-name">'+esc(name)+'</div>' +
+        '<div class="user-card-meta">'+(u.username ? '@'+esc(u.username) : 'ID: '+u.id)+'</div>' +
+        '<div class="user-card-tags"><span class="user-tag" style="background:'+roleColors[role]+'">'+roleLabel+'</span></div>' +
+      '</div>' +
+      '<button class="btn-sm" onclick="event.stopPropagation();showRoleModal('+u.id+')">Rol o\'zgartirish</button>' +
+    '</div>';
+  }).join('');
+}
+
+function showRoleModal(userId) {
+  var u = allRolesUsers.find(function(x){ return x.id == userId; });
+  if (!u) return;
+  var name = ((u.first_name||'')+' '+(u.last_name||'')).trim() || 'Noma\'lum';
+  document.getElementById('roleUserId').value = u.id;
+  document.getElementById('roleUserInfo').innerHTML =
+    '<img src="'+(u.photo_url||avatarUrl(u.first_name))+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover">'+
+    '<div><div style="font-weight:600">'+esc(name)+'</div>'+
+    '<div style="font-size:12px;color:var(--text-dim)">'+(u.username ? '@'+esc(u.username) : 'ID: '+u.id)+'</div></div>';
+  document.getElementById('roleSelect').value = u.role || 'user';
+  toggleRoleRestField();
+  // Fill restaurant select
+  var sel = document.getElementById('roleRestSelect');
+  sel.innerHTML = '<option value="">Restoran tanlang...</option>';
+  restaurants.forEach(function(r) {
+    var o = document.createElement('option');
+    o.value = r.id; o.textContent = r.name;
+    if (u.restaurant_id && r.id == u.restaurant_id) o.selected = true;
+    sel.appendChild(o);
+  });
+  document.getElementById('roleModal').classList.remove('hidden');
+}
+
+function toggleRoleRestField() {
+  var role = document.getElementById('roleSelect').value;
+  document.getElementById('roleRestGroup').style.display = role === 'seller' ? 'block' : 'none';
+}
+
+function closeRoleModal() { document.getElementById('roleModal').classList.add('hidden'); }
+
+function saveRole() {
+  var uid  = document.getElementById('roleUserId').value;
+  var role = document.getElementById('roleSelect').value;
+  var rid  = document.getElementById('roleRestSelect').value;
+  if (!uid) return;
+  var data = { user_id: parseInt(uid), role: role };
+  if (role === 'seller' && rid) data.restaurant_id = parseInt(rid);
+  post('admin_set_role', data).then(function(res) {
+    if (res.success) {
+      adminToast('Rol o\'zgartirildi ✓', 'success');
+      closeRoleModal();
+      loadRoles();
+    } else {
+      adminToast('Xatolik: ' + (res.data || ''), 'error');
+    }
+  });
+}
+
 // ── RESTAURANTS ──
 function loadRestaurants() {
   get(withAdmin('admin_restaurants')).then(function(res) {

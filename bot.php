@@ -22,8 +22,8 @@ function sendMsg(int $chatId, string $text, ?array $replyMarkup = null): void {
     tg('sendMessage', $params);
 }
 
-// Asosiy klaviatura (foydalanuvchida telefon bor/yo'qqa qarab)
-function mainKeyboard(bool $hasPhone): array {
+// Asosiy klaviatura role-ga qarab
+function mainKeyboard(bool $hasPhone, string $role = 'user'): array {
     $rows = [];
     if (!$hasPhone) {
         $rows[] = [['text' => '📱 Telefon raqamimni yuborish', 'request_contact' => true]];
@@ -31,7 +31,22 @@ function mainKeyboard(bool $hasPhone): array {
     $rows[] = [['text' => '📍 Joylashuvimni yuborish', 'request_location' => true]];
     $rows[] = [['text' => '📋 Buyurtmalarim'], ['text' => '👤 Profil']];
     $rows[] = [['text' => '📞 Bog\'lanish'], ['text' => 'ℹ️ Haqida']];
+    if ($role === 'seller') {
+        $rows[] = [['text' => '🏪 Mening Restoranim', 'web_app' => ['url' => WEBAPP_URL . '../webapp/seller.html']]];
+    }
+    if ($role === 'admin') {
+        $rows[] = [['text' => '⚙️ Admin Panel', 'web_app' => ['url' => WEBAPP_URL . '../webapp/admin.html']]];
+    }
     return ['keyboard' => $rows, 'resize_keyboard' => true];
+}
+
+function getUserRole(int $id): string {
+    static $cache = [];
+    if (isset($cache[$id])) return $cache[$id];
+    $s = db()->prepare("SELECT role FROM users WHERE id=?");
+    $s->execute([$id]);
+    $cache[$id] = $s->fetchColumn() ?: 'user';
+    return $cache[$id];
 }
 
 $update = json_decode(file_get_contents('php://input'), true);
@@ -120,8 +135,12 @@ db()->prepare(
 ]);
 
 $firstName = $from['first_name'] ?? 'Foydalanuvchi';
-
-// ── KONTAKT: telefon saqlash ──
+$userRole = getUserRole($chatId);
+// DB dan foydalanuvchi ma'lumotlari
+$userRow = db()->prepare("SELECT phone, address FROM users WHERE id=?");
+$userRow->execute([$chatId]);
+$dbUser  = $userRow->fetch() ?: ['phone' => '', 'address' => ''];
+$hasPhone = !empty($dbUser['phone']);
 if (isset($msg['contact'])) {
     $contact = $msg['contact'];
 
@@ -182,22 +201,21 @@ if (isset($msg['location'])) {
 // ── MATN XABARLARI ──
 $text = trim($msg['text'] ?? '');
 
-// DB dan foydalanuvchi ma'lumotlari
-$userRow = db()->prepare("SELECT phone, address FROM users WHERE id=?");
-$userRow->execute([$chatId]);
-$dbUser  = $userRow->fetch() ?: ['phone' => '', 'address' => ''];
-$hasPhone = !empty($dbUser['phone']);
-
 if ($text === '/start') {
     $welcome = "👋 Assalomu alaykum, *{$firstName}*!\n\n"
              . "🍽️ *Iftixor Go* — tez va qulay ovqat buyurtmasi\n\n";
+
+    if ($userRole === 'admin') {
+        $welcome .= "⚙️ Siz *Admin* sifatida kirgansiz.\n\n";
+    } elseif ($userRole === 'seller') {
+        $welcome .= "🏪 Siz *Sotuvchi* sifatida kirgansiz.\n\n";
+    }
 
     if (!$hasPhone) {
         $welcome .= "📱 Avval telefon raqamingizni yuboring — buyurtmada ishlatiladi.\n\n";
     }
     $welcome .= "Quyidagi tugmani bosib buyurtma bering 👇";
 
-    // 1) Inline keyboard (Web App)
     tg('sendMessage', [
         'chat_id'      => $chatId,
         'text'         => $welcome,
@@ -207,13 +225,43 @@ if ($text === '/start') {
         ]]]
     ]);
 
-    // 2) Reply keyboard (kontakt/joylashuv tugmalari) — alohida xabar
     tg('sendMessage', [
         'chat_id'      => $chatId,
         'text'         => $hasPhone
             ? "📍 Joylashuvingizni yangilash uchun:"
             : "📱 Telefon va joylashuvni yuboring:",
-        'reply_markup' => mainKeyboard($hasPhone)
+        'reply_markup' => mainKeyboard($hasPhone, $userRole)
+    ]);
+}
+
+elseif ($text === '/admin') {
+    if (!in_array($chatId, ADMIN_IDS)) {
+        sendMsg($chatId, "❌ Sizda admin huquqi yo'q.");
+        exit;
+    }
+    db()->prepare("UPDATE users SET role='admin' WHERE id=?")->execute([$chatId]);
+    tg('sendMessage', [
+        'chat_id' => $chatId,
+        'text' => "✅ Siz endi *Admin* sifatida faolsiz!\n\n⚙️ *Admin Panel* tugmasini bosing.",
+        'parse_mode' => 'Markdown',
+        'reply_markup' => mainKeyboard($hasPhone, 'admin')
+    ]);
+}
+
+elseif ($text === '/seller') {
+    $s = db()->prepare("SELECT id FROM restaurants WHERE owner_tg_id=?");
+    $s->execute([$chatId]);
+    $rest = $s->fetch();
+    if (!$rest) {
+        sendMsg($chatId, "❌ Sizda restoran yo'q.\n\nRestoran yaratish uchun buyurtma berish sahifasidan *Sotuvchi* bo'lib ro'yxatdan o'ting.");
+        exit;
+    }
+    db()->prepare("UPDATE users SET role='seller', restaurant_id=? WHERE id=?")->execute([$rest['id'], $chatId]);
+    tg('sendMessage', [
+        'chat_id' => $chatId,
+        'text' => "✅ Siz endi *Sotuvchi* sifatida faolsiz!\n\n🏪 *Mening Restoranim* tugmasini bosing.",
+        'parse_mode' => 'Markdown',
+        'reply_markup' => mainKeyboard($hasPhone, 'seller')
     ]);
 }
 

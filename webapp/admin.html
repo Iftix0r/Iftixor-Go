@@ -55,14 +55,14 @@
       Mahsulotlar
     </a>
 
-    <div class="nav-section">Katalog</div>
-    <a class="nav-link" onclick="switchTab('categories')" id="tab-categories">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      Kategoriyalar
-    </a>
+    <div class="nav-section">Restoranlar</div>
     <a class="nav-link" onclick="switchTab('restaurants')" id="tab-restaurants">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M3 21h18M5 21V7l8-4 8 4v14M9 21v-4h6v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       Restoranlar
+    </a>
+    <a class="nav-link" onclick="switchTab('roles')" id="tab-roles">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Rollar
     </a>
 
     <div class="nav-section">Taxi</div>
@@ -298,6 +298,26 @@
     <div class="card"><div id="restaurantsList"><div class="empty-state" style="padding:40px"><p>Yuklanmoqda...</p></div></div></div>
   </section>
 
+  <!-- ROLES -->
+  <section class="tab-content" id="content-roles">
+    <div class="page-header">
+      <div>
+        <h1>Foydalanuvchi Rollari</h1>
+        <p class="page-desc">Admin, Sotuvchi, Foydalanuvchi rollarini boshqaring</p>
+      </div>
+      <div class="header-actions">
+        <input type="text" id="rolesSearch" placeholder="Ism, username..." oninput="searchRoles()">
+        <select id="rolesFilter" onchange="loadRoles()">
+          <option value="">Barchasi</option>
+          <option value="admin">⚙️ Admin</option>
+          <option value="seller">🏪 Sotuvchi</option>
+          <option value="user">👤 Foydalanuvchi</option>
+        </select>
+      </div>
+    </div>
+    <div id="rolesList" class="users-grid"></div>
+  </section>
+
   <!-- TAXI -->
   <section class="tab-content" id="content-taxi">
     <div class="page-header">
@@ -491,6 +511,40 @@
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeRestaurantModal()">Bekor</button>
       <button class="btn-primary" onclick="saveRestaurant()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Role Modal -->
+<div class="modal hidden" id="roleModal">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-header">
+      <h3>Rolni o'zgartirish</h3>
+      <button class="modal-close" onclick="closeRoleModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="roleUserId">
+      <div id="roleUserInfo" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px;background:var(--bg3);border-radius:8px"></div>
+      <div class="form-group">
+        <label>Rol</label>
+        <select id="roleSelect" onchange="toggleRoleRestField()">
+          <option value="user">👤 Oddiy foydalanuvchi</option>
+          <option value="seller">🏪 Sotuvchi</option>
+          <option value="admin">⚙️ Admin</option>
+        </select>
+      </div>
+      <div class="form-group" id="roleRestGroup" style="display:none">
+        <label>Restoran (Sotuvchi uchun)</label>
+        <select id="roleRestSelect">
+          <option value="">Restoran tanlang...</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeRoleModal()">Bekor</button>
+      <button class="btn-primary" onclick="saveRole()">Saqlash</button>
     </div>
   </div>
 </div>

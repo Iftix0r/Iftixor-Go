@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Iftixor Go — Sotuvchi Panel</title>
+<link rel="stylesheet" href="admin.css">
+<style>
+  .seller-hero { background: linear-gradient(135deg, #ff6b35 0%, #e85d27 100%); color: #fff; padding: 20px; border-radius: 14px; margin-bottom: 20px; display: flex; gap: 14px; align-items: center; }
+  .seller-hero-icon { font-size: 36px; }
+  .seller-hero-title { font-size: 18px; font-weight: 700; }
+  .seller-hero-sub { font-size: 13px; opacity: .8; margin-top: 2px; }
+  .seller-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; }
+  .seller-tab { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  .seller-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .seller-section { display: none; }
+  .seller-section.active { display: block; }
+  .order-status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .status-new       { background: rgba(99,102,241,.15); color: #818cf8; }
+  .status-confirmed { background: rgba(34,197,94,.15);  color: #22c55e; }
+  .status-cooking   { background: rgba(251,146,60,.15); color: #fb923c; }
+  .status-delivered { background: rgba(167,139,250,.15);color: #a78bfa; }
+  .status-cancelled { background: rgba(239,68,68,.15);  color: #f87171; }
+  .product-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border); }
+  .product-row:last-child { border-bottom: none; }
+  .product-row-img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--bg3); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; }
+  .product-row-img img { width: 100%; height: 100%; object-fit: cover; }
+  .product-row-info { flex: 1; min-width: 0; }
+  .product-row-name { font-weight: 600; font-size: 14px; }
+  .product-row-price { color: var(--accent); font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .product-row-avail { font-size: 11px; margin-top: 2px; }
+  .avail-on  { color: #22c55e; }
+  .avail-off { color: #f87171; }
+  .order-card { padding: 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .order-card:last-child { border-bottom: none; }
+  .order-card:hover { background: var(--bg3); }
+  .order-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .order-card-id { font-weight: 700; color: var(--accent); }
+  .order-card-items { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .order-card-total { font-size: 15px; font-weight: 700; }
+  .stat-mini-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-mini { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .stat-mini-val { font-size: 20px; font-weight: 800; }
+  .stat-mini-lbl { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .no-rest-wrap { text-align: center; padding: 40px 20px; }
+  .no-rest-icon { font-size: 52px; margin-bottom: 12px; }
+  .no-rest-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .no-rest-sub { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: .4px; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; box-sizing: border-box; }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="18" fill="#ff6b35"/><path d="M9 14c0-.6.4-1 1-1h16c.6 0 1 .4 1 1v2H9v-2z" fill="white"/><rect x="9" y="16" width="18" height="11" rx="1.5" fill="white" opacity=".9"/><circle cx="14" cy="21.5" r="2" fill="#ff6b35"/><circle cx="18" cy="21.5" r="2" fill="#ff6b35"/><circle cx="22" cy="21.5" r="2" fill="#ff6b35"/><rect x="16.5" y="9" width="3" height="5" rx="1.5" fill="white"/></svg>
+    </div>
+    <div>
+      <div class="brand-name">Iftixor Go</div>
+      <div class="brand-tag">Sotuvchi Panel</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-link active" onclick="showSection('dashboard')" id="snav-dashboard">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-link" onclick="showSection('orders')" id="snav-orders">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="1.8"/></svg>
+      Buyurtmalar
+      <span class="nav-badge" id="sellerPendingBadge" style="display:none">0</span>
+    </a>
+    <a class="nav-link" onclick="showSection('products')" id="snav-products">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="currentColor" stroke-width="1.8"/></svg>
+      Mahsulotlar
+    </a>
+    <a class="nav-link" onclick="showSection('restoran')" id="snav-restoran">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M3 21h18M5 21V7l8-4 8 4v14M9 21v-4h6v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Restoran
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="admin-info">
+      <div class="admin-avatar" id="sellerAvatarWrap">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+      </div>
+      <div>
+        <div class="admin-name" id="sellerName">Sotuvchi</div>
+        <div class="admin-role">🏪 Restoran egasi</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<header class="mobile-header">
+  <button class="menu-toggle" onclick="toggleSidebar()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+  <span class="mobile-title" id="sellerMobileTitle">Sotuvchi Panel</span>
+</header>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<main class="main-content" id="mainContent">
+
+  <!-- NO RESTAURANT -->
+  <div id="noRestWrap" class="no-rest-wrap" style="display:none">
+    <div class="no-rest-icon">🏪</div>
+    <div class="no-rest-title">Restoran mavjud emas</div>
+    <div class="no-rest-sub">Admin sizga restoran biriktirishi kerak yoki siz restoran yaratasiz.</div>
+    <button class="btn-primary" onclick="showCreateRestModal()">Restoran yaratish</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <section class="seller-section active" id="section-dashboard">
+    <div class="page-header">
+      <div><h1>Dashboard</h1><p class="page-desc" id="sellerRestName">Restoran yuklanmoqda...</p></div>
+      <button class="btn-sm" onclick="loadSellerData()">↻ Yangilash</button>
+    </div>
+    <div class="stat-mini-grid">
+      <div class="stat-mini"><div class="stat-mini-val" id="sViews">—</div><div class="stat-mini-lbl">Ko'rishlar</div></div>
+      <div class="stat-mini"><div class="stat-mini-val" id="sTotalOrders">—</div><div class="stat-mini-lbl">Jami buyurtmalar</div></div>
+      <div class="stat-mini stat-green"><div class="stat-mini-val" id="sTotalRevenue">—</div><div class="stat-mini-lbl">Jami daromad</div></div>
+      <div class="stat-mini"><div class="stat-mini-val" id="sProducts">—</div><div class="stat-mini-lbl">Mahsulotlar</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2>Yangi buyurtmalar</h2></div>
+      <div id="dashOrdersList"><div class="empty-state" style="padding:30px"><p style="color:var(--text-dim)">Yuklanmoqda...</p></div></div>
+    </div>
+  </section>
+
+  <!-- ORDERS -->
+  <section class="seller-section" id="section-orders">
+    <div class="page-header">
+      <div><h1>Buyurtmalar</h1></div>
+      <select id="sellerOrderFilter" onchange="renderSellerOrders()" style="padding:7px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
+        <option value="">Barchasi</option>
+        <option value="new">Yangi</option>
+        <option value="confirmed">Qabul</option>
+        <option value="cooking">Tayyorlanmoqda</option>
+        <option value="delivered">Yetkazildi</option>
+        <option value="cancelled">Bekor</option>
+      </select>
+    </div>
+    <div class="card"><div id="sellerOrdersList"><div class="empty-state" style="padding:30px"><p>Yuklanmoqda...</p></div></div></div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section class="seller-section" id="section-products">
+    <div class="page-header">
+      <div><h1>Mahsulotlar</h1></div>
+      <button class="btn-primary" onclick="showSellerProductModal()">+ Qo'shish</button>
+    </div>
+    <div class="card"><div id="sellerProductsList"></div></div>
+  </section>
+
+  <!-- RESTORAN -->
+  <section class="seller-section" id="section-restoran">
+    <div class="page-header"><div><h1>Restoran ma'lumotlari</h1></div></div>
+    <div class="card" style="padding:20px">
+      <div id="sellerRestInfo"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Product Modal -->
+<div class="modal hidden" id="sellerProductModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="sellerProdModalTitle">Yangi mahsulot</h3>
+      <button class="modal-close" onclick="closeSellerProductModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sellerProdId">
+      <div class="form-group"><label>Kategoriya</label><select id="sellerProdCat"></select></div>
+      <div class="form-group"><label>Nomi *</label><input type="text" id="sellerProdName" placeholder="Masalan: Osh"></div>
+      <div class="form-group"><label>Tavsif</label><textarea id="sellerProdDesc" placeholder="Qisqacha tavsif"></textarea></div>
+      <div class="form-group"><label>Narxi (so'm) *</label><input type="number" id="sellerProdPrice" placeholder="25000"></div>
+      <div class="form-group"><label>Rasm URL</label><input type="text" id="sellerProdImage" placeholder="https://..."></div>
+      <div class="form-group" id="sellerProdAvailGroup" style="display:none">
+        <label class="checkbox-label"><input type="checkbox" id="sellerProdAvail" checked><span>Sotuvda mavjud</span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeSellerProductModal()">Bekor</button>
+      <button class="btn-primary" onclick="saveSellerProduct()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order Detail Modal -->
+<div class="modal hidden" id="sellerOrderModal">
+  <div class="modal-box" style="max-width:460px">
+    <div class="modal-header">
+      <h3>Buyurtma tafsiloti</h3>
+      <button class="modal-close" onclick="document.getElementById('sellerOrderModal').classList.add('hidden')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+    </div>
+    <div id="sellerOrderDetailBody"></div>
+  </div>
+</div>
+
+<!-- Create Restaurant Modal -->
+<div class="modal hidden" id="createRestModal">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-header">
+      <h3>Restoran yaratish</h3>
+      <button class="modal-close" onclick="document.getElementById('createRestModal').classList.add('hidden')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Restoran nomi *</label><input type="text" id="newRestName" placeholder="Masalan: Evos Toshkent"></div>
+      <div class="form-group"><label>Manzil</label><input type="text" id="newRestAddress" placeholder="Masalan: Chilonzor, 5-kv"></div>
+      <div class="form-group"><label>Telefon *</label><input type="tel" id="newRestPhone" placeholder="+998901234567"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="document.getElementById('createRestModal').classList.add('hidden')">Bekor</button>
+      <button class="btn-primary" onclick="createRestaurant()">Yaratish</button>
+    </div>
+  </div>
+</div>
+
+<div id="adminToast" class="admin-toast hidden"></div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="seller.js"></script>
+</body>
+</html>

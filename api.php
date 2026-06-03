@@ -37,7 +37,8 @@ $adminActions = ['admin_stats','admin_orders','admin_users','admin_user_orders',
     'admin_block_user','admin_unblock_user','admin_delete_user','admin_send_message',
     'admin_update_order','admin_broadcast','admin_add_product','admin_edit_product',
     'admin_delete_product','admin_categories','admin_products',
-    'admin_restaurants', 'admin_add_restaurant', 'admin_edit_restaurant', 'admin_delete_restaurant'];
+    'admin_restaurants', 'admin_add_restaurant', 'admin_edit_restaurant', 'admin_delete_restaurant',
+    'admin_set_role', 'admin_revenue_chart', 'admin_taxi_rides', 'admin_update_taxi'];
 if (in_array($action, $adminActions, true)) {
     requireAdmin();
 }
@@ -389,7 +390,166 @@ switch ($action) {
 
 // ══════════ ADMIN ══════════
 
-    case 'admin_stats':
+    case 'admin_set_role':
+        $uid  = $input['user_id'] ?? 0;
+        $role = $input['role'] ?? 'user';
+        if (!$uid) resp('No ID', false);
+        if (!in_array($role, ['user','seller','admin'], true)) resp('Invalid role', false);
+        // seller bo'lsa restaurant_id ham kerak
+        $rid = !empty($input['restaurant_id']) ? (int)$input['restaurant_id'] : null;
+        if ($role === 'seller' && $rid) {
+            db()->prepare("UPDATE users SET role=?, restaurant_id=? WHERE id=?")->execute([$role, $rid, $uid]);
+            db()->prepare("UPDATE restaurants SET owner_tg_id=? WHERE id=?")->execute([$uid, $rid]);
+        } else {
+            db()->prepare("UPDATE users SET role=?, restaurant_id=NULL WHERE id=?")->execute([$role, $uid]);
+        }
+        // Foydalanuvchiga xabar
+        $roleNames = ['user' => '👤 Oddiy foydalanuvchi', 'seller' => '🏪 Sotuvchi', 'admin' => '⚙️ Admin'];
+        $roleName  = $roleNames[$role] ?? $role;
+        tgReq('sendMessage', [
+            'chat_id' => $uid,
+            'text' => "🔔 *Rolingiz o'zgartirildi!*\n\nYangi rol: *{$roleName}*\n\nQo'shimcha ma'lumot: /start",
+            'parse_mode' => 'Markdown'
+        ]);
+        resp('updated');
+        break;
+
+    case 'seller_get_data':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        $u = db()->prepare("SELECT role, restaurant_id FROM users WHERE id=?");
+        $u->execute([$tgId]);
+        $uRow = $u->fetch();
+        if (!$uRow || !in_array($uRow['role'], ['seller','admin'])) resp('Access denied', false);
+
+        $rid = (int)$uRow['restaurant_id'];
+        if (!$rid && $uRow['role'] === 'admin') {
+            // Admin barcha restoranlarni ko'ra oladi
+            $rid = (int)($_GET['restaurant_id'] ?? 0);
+        }
+        if (!$rid) resp('Restoran topilmadi', false);
+
+        $rest = db()->prepare("SELECT * FROM restaurants WHERE id=?");
+        $rest->execute([$rid]);
+        $rest = $rest->fetch();
+        if (!$rest) resp('Restoran topilmadi', false);
+
+        $cats = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
+        $prods = db()->prepare("SELECT * FROM products WHERE restaurant_id=?");
+        $prods->execute([$rid]);
+        $prodsList = $prods->fetchAll();
+        $prodIds = array_column($prodsList, 'id');
+
+        $allOrders = db()->query("SELECT * FROM orders ORDER BY id DESC LIMIT 300")->fetchAll();
+        $restOrders = []; $totalRevenue = 0;
+        foreach ($allOrders as $o) {
+            $items = json_decode($o['items'], true);
+            if (!is_array($items)) continue;
+            $myItems = []; $myTotal = 0;
+            foreach ($items as $item) {
+                if (in_array((int)$item['id'], $prodIds)) {
+                    $myItems[] = $item;
+                    $myTotal += $item['price'] * $item['qty'];
+                }
+            }
+            if ($myItems) {
+                $o['items'] = json_encode($myItems, JSON_UNESCAPED_UNICODE);
+                $o['my_total'] = $myTotal;
+                $restOrders[] = $o;
+                if (!in_array($o['status'], ['cancelled'], true)) $totalRevenue += $myTotal;
+            }
+        }
+
+        resp([
+            'restaurant' => $rest,
+            'products'   => $prodsList,
+            'categories' => $cats,
+            'orders'     => array_slice($restOrders, 0, 50),
+            'stats' => [
+                'views'        => (int)$rest['views'],
+                'total_orders' => count($restOrders),
+                'total_revenue'=> $totalRevenue,
+            ]
+        ]);
+        break;
+
+    case 'seller_add_product':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        $u = db()->prepare("SELECT role, restaurant_id FROM users WHERE id=?");
+        $u->execute([$tgId]); $uRow = $u->fetch();
+        if (!$uRow || !in_array($uRow['role'], ['seller','admin'])) resp('Access denied', false);
+        $rid = (int)$uRow['restaurant_id'];
+        if (!$rid) resp('Restoran topilmadi', false);
+        $name = trim($input['name'] ?? '');
+        $price = (float)($input['price'] ?? 0);
+        $catId = (int)($input['category_id'] ?? 0);
+        if (!$name || !$price || !$catId) resp('Missing data', false);
+        $s = db()->prepare("INSERT INTO products (category_id, restaurant_id, name, description, price, image, available) VALUES (?,?,?,?,?,?,1)");
+        $s->execute([$catId, $rid, $name, $input['description'] ?? '', $price, $input['image'] ?? '']);
+        resp(['id' => db()->lastInsertId()]);
+        break;
+
+    case 'seller_edit_product':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        $u = db()->prepare("SELECT role, restaurant_id FROM users WHERE id=?");
+        $u->execute([$tgId]); $uRow = $u->fetch();
+        if (!$uRow || !in_array($uRow['role'], ['seller','admin'])) resp('Access denied', false);
+        $rid = (int)$uRow['restaurant_id'];
+        $id  = (int)($input['id'] ?? 0);
+        if (!$id) resp('Missing id', false);
+        // Faqat o'z restoranining mahsulotini o'zgartirsin
+        $own = db()->prepare("SELECT id FROM products WHERE id=? AND restaurant_id=?");
+        $own->execute([$id, $rid]);
+        if (!$own->fetch() && $uRow['role'] !== 'admin') resp('Access denied', false);
+        db()->prepare("UPDATE products SET name=?, description=?, price=?, image=?, available=?, category_id=? WHERE id=?")
+            ->execute([$input['name']??'', $input['description']??'', $input['price']??0, $input['image']??'', $input['available']??1, $input['category_id']??0, $id]);
+        resp('updated');
+        break;
+
+    case 'seller_delete_product':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        $u = db()->prepare("SELECT role, restaurant_id FROM users WHERE id=?");
+        $u->execute([$tgId]); $uRow = $u->fetch();
+        if (!$uRow || !in_array($uRow['role'], ['seller','admin'])) resp('Access denied', false);
+        $rid = (int)$uRow['restaurant_id'];
+        $id  = (int)($input['id'] ?? 0);
+        if (!$id) resp('Missing id', false);
+        $own = db()->prepare("SELECT id FROM products WHERE id=? AND restaurant_id=?");
+        $own->execute([$id, $rid]);
+        if (!$own->fetch() && $uRow['role'] !== 'admin') resp('Access denied', false);
+        db()->prepare("DELETE FROM products WHERE id=?")->execute([$id]);
+        resp('deleted');
+        break;
+
+    case 'seller_update_order':
+        $auth = requireTelegramUser();
+        $tgId = (int)$auth['id'];
+        $u = db()->prepare("SELECT role, restaurant_id FROM users WHERE id=?");
+        $u->execute([$tgId]); $uRow = $u->fetch();
+        if (!$uRow || !in_array($uRow['role'], ['seller','admin'])) resp('Access denied', false);
+        $orderId   = (int)($input['order_id'] ?? 0);
+        $newStatus = $input['status'] ?? '';
+        if (!$orderId || !$newStatus) resp('Missing data', false);
+        db()->prepare("UPDATE orders SET status=? WHERE id=?")->execute([$newStatus, $orderId]);
+        $o = db()->prepare("SELECT user_id FROM orders WHERE id=?");
+        $o->execute([$orderId]); $o = $o->fetch();
+        if ($o) {
+            $msgs = [
+                'confirmed' => "✅ *#{$orderId} buyurtmangiz qabul qilindi!*\n🍽️ Tayyorlanmoqda...",
+                'cooking'   => "👨‍🍳 *#{$orderId} buyurtmangiz tayyorlanmoqda!*",
+                'delivered' => "🚚 *#{$orderId} buyurtmangiz yetkazildi!*\nYoqimli ishtaha! 😋",
+                'cancelled' => "❌ *#{$orderId} buyurtmangiz bekor qilindi.*",
+            ];
+            if (isset($msgs[$newStatus]))
+                tgReq('sendMessage', ['chat_id' => $o['user_id'], 'text' => $msgs[$newStatus], 'parse_mode' => 'Markdown']);
+        }
+        resp('updated');
+        break;
+
+
         $today = date('Y-m-d');
         try {
             $ts = db()->prepare("SELECT COUNT(*) cnt, COALESCE(SUM(total),0) rev FROM orders WHERE DATE(created_at)=?");
