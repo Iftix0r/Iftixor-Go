@@ -136,9 +136,13 @@ function mainInlineKeyboard($rest) {
         [
             ['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'action_add_product'],
             ['text' => '📊 Hisobot va Sozlamalar', 'callback_data' => 'action_report']
+        ],
+        [
+            ['text' => '🗑️ Restorni o\'chirish', 'callback_data' => 'action_delete_restaurant']
         ]
     ]];
 }
+
 
 
 function getOrderKeyboard($orderId) {
