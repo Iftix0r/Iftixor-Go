@@ -62,6 +62,15 @@ function initDB(): void {
             FOREIGN KEY (category_id) REFERENCES categories(id)
         );
 
+        CREATE TABLE IF NOT EXISTS product_variants (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            product_id INT NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            available TINYINT(1) DEFAULT 1,
+            sort_order INT DEFAULT 0,
+            INDEX (product_id)
+        );
         CREATE TABLE IF NOT EXISTS orders (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT NOT NULL,

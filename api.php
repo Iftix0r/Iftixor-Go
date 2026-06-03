@@ -162,10 +162,20 @@ switch ($action) {
     // ── MENU ──
     case 'get_menu':
         $cats  = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
-        $prods = db()->query("SELECT p.*, r.name as restaurant_name, r.views as restaurant_views FROM products p LEFT JOIN restaurants r ON p.restaurant_id=r.id WHERE p.available=1 ORDER BY p.order_count DESC, p.category_id")->fetchAll();
+        $prods = db()->query("SELECT p.*, r.name as restaurant_name FROM products p LEFT JOIN restaurants r ON p.restaurant_id=r.id WHERE p.available=1 ORDER BY p.order_count DESC, p.category_id")->fetchAll();
+        try {
+            $variants = db()->query("SELECT * FROM product_variants WHERE available=1 ORDER BY sort_order, id")->fetchAll();
+        } catch (Throwable $e) { $variants = []; }
+        $varMap = [];
+        foreach ($variants as $v) $varMap[$v['product_id']][] = $v;
         $menu = [];
         foreach ($cats as $c) {
-            $c['products'] = array_values(array_filter($prods, fn($p) => $p['category_id'] == $c['id']));
+            $prods2 = array_values(array_filter($prods, fn($p) => $p['category_id'] == $c['id']));
+            foreach ($prods2 as &$p) {
+                $p['variants'] = isset($varMap[$p['id']]) ? array_values($varMap[$p['id']]) : [];
+            }
+            unset($p);
+            $c['products'] = $prods2;
             $menu[] = $c;
         }
         resp($menu);
@@ -371,6 +381,30 @@ switch ($action) {
                     ['text' => '❌ Bekor', 'callback_data' => "cancel_$orderId"],
                 ]]]
             ]);
+
+            // Sotuvchilarga xabar yuborish
+            $itemIds = array_column($items, 'id');
+            if (!empty($itemIds)) {
+                $placeholders = implode(',', array_fill(0, count($itemIds), '?'));
+                $sellers = db()->prepare(
+                    "SELECT DISTINCT u.id FROM users u
+                     JOIN restaurants r ON u.restaurant_id = r.id
+                     JOIN products p ON p.restaurant_id = r.id
+                     WHERE u.role = 'seller' AND p.id IN ($placeholders)"
+                );
+                $sellers->execute($itemIds);
+                foreach ($sellers->fetchAll() as $seller) {
+                    tgReq('sendMessage', [
+                        'chat_id' => $seller['id'],
+                        'text' => $msg,
+                        'parse_mode' => 'Markdown',
+                        'reply_markup' => ['inline_keyboard' => [[
+                            ['text' => '\u2705 Qabul', 'callback_data' => "confirm_$orderId"],
+                            ['text' => '\u274c Bekor', 'callback_data' => "cancel_$orderId"],
+                        ]]]
+                    ]);
+                }
+            }
             resp(['order_id' => $orderId, 'total' => $total, 'subtotal' => $subtotal, 'delivery_fee' => DELIVERY_FEE]);
         } catch (Throwable $e) {
             resp('Buyurtma saqlanmadi: ' . $e->getMessage(), false);
