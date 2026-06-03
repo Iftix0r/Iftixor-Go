@@ -70,6 +70,25 @@ if (isset($update['callback_query'])) {
             case 'report':
                 $text = '📊 Hisobot va Sozlamalar';
                 break;
+            case 'delete_restaurant':
+                // Delete restaurant and related data
+                // First fetch restaurant id
+                $restInfo = db()->prepare("SELECT id FROM restaurants WHERE owner_tg_id=?")->execute([$chatId])->fetch();
+                if ($restInfo) {
+                    $restId = $restInfo['id'];
+                    // Delete orders belonging to this restaurant
+                    db()->prepare("DELETE FROM orders WHERE restaurant_id=?")->execute([$restId]);
+                    // Delete products belonging to this restaurant
+                    db()->prepare("DELETE FROM products WHERE restaurant_id=?")->execute([$restId]);
+                    // Delete the restaurant itself
+                    db()->prepare("DELETE FROM restaurants WHERE id=?")->execute([$restId]);
+                }
+                // Reset state
+                setState($chatId, '');
+                tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "✅ Restoran va unga tegishli barcha mahsulotlar o'chirildi.", 'parse_mode' => 'Markdown']);
+                // No further processing
+                tg_rest('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
+                exit;
             default:
                 $text = '';
         }
