@@ -796,7 +796,14 @@ if (preg_match('~^/start(?:@\w+)?~i', $text) || mb_strtolower($text) === 'start'
     if ($userRole === 'seller') {
         $rest = getSellerRestaurant($chatId);
         if (!$rest) {
-            sendMsg($chatId, "\xF0\x9F\x9A\xAB Siz sotuvchi rolidasiz, lekin restoran topilmadi.\n\nAdmin bilan bog'laning.");
+            // DB debug
+            $dbgU = db()->prepare('SELECT id, role, restaurant_id FROM users WHERE id=?');
+            $dbgU->execute([$chatId]);
+            $dbgRow = $dbgU->fetch();
+            $dbgR = db()->query('SELECT id, name, owner_tg_id FROM restaurants')->fetchAll();
+            $info = "role={$dbgRow['role']} rest_id={$dbgRow['restaurant_id']}\n";
+            foreach ($dbgR as $r) $info .= "#{$r['id']} {$r['name']} owner={$r['owner_tg_id']}\n";
+            sendMsg($chatId, "DEBUG:\n" . $info);
             exit;
         }
         $welcome .= "\xF0\x9F\x8F\xAA *Sotuvchi paneli* \xE2\x80\x94 {$rest['name']}\n\nBuyurtmalar va menyuni boshqaring \xF0\x9F\x91\x87";
