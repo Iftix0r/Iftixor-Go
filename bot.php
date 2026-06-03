@@ -837,12 +837,19 @@ elseif ($text === '/admin') {
 }
 
 elseif ($text === '/seller') {
-    $s = db()->prepare("SELECT id FROM restaurants WHERE owner_tg_id=?");
-    $s->execute([$chatId]);
+    $s = db()->prepare(
+        "SELECT r.id, r.owner_tg_id FROM restaurants r \
+         LEFT JOIN users u ON u.id=? \
+         WHERE r.owner_tg_id=? OR r.id=u.restaurant_id"
+    );
+    $s->execute([$chatId, $chatId]);
     $rest = $s->fetch();
     if (!$rest) {
         sendMsg($chatId, "❌ Sizda restoran yo'q.\n\nRestoran yaratish uchun admin bilan bog'laning.");
         exit;
+    }
+    if (empty($rest['owner_tg_id'])) {
+        db()->prepare("UPDATE restaurants SET owner_tg_id=? WHERE id=?")->execute([$chatId, $rest['id']]);
     }
     db()->prepare("UPDATE users SET role='seller', restaurant_id=? WHERE id=?")->execute([$rest['id'], $chatId]);
     tg('sendMessage', [
