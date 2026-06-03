@@ -832,6 +832,71 @@ body {
   background: var(--bg); color: var(--subtext);
   font-size: 16px; cursor: pointer;
 }
+.rest-page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.rest-page-back {
+  background: var(--card);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.rest-page-avatar-ring {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rest-page-avatar {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+.rest-page-info {
+  flex: 1;
+}
+.rest-page-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.rest-page-sub {
+  font-size: 13px;
+  color: var(--subtext);
+}
+.rest-page-search-wrap {
+  flex: 1;
+  position: relative;
+}
+.rest-page-search-wrap .search-input {
+  padding-left: 30px;
+}
+.rest-page-search-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--subtext);
+}
+.rest-products {
+  padding: 0 16px 16px;
+}
 .drawer-item {
   display: flex; align-items: center; gap: 14px;
   width: 100%; padding: 16px 18px;
