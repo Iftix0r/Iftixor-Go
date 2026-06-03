@@ -24,6 +24,8 @@ function initDB(): void {
             phone VARCHAR(20),
             address TEXT,
             language_code VARCHAR(10),
+            role ENUM('user','seller','admin') DEFAULT 'user',
+            restaurant_id INT DEFAULT NULL,
             is_blocked TINYINT(1) DEFAULT 0,
             block_reason VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -140,6 +142,14 @@ try {
     if (empty($scols)) {
         db()->exec("ALTER TABLE users ADD COLUMN bot_state VARCHAR(255) DEFAULT ''");
         db()->exec("ALTER TABLE users ADD COLUMN bot_temp_data TEXT");
+    }
+} catch (Exception $e) { /* ignore */ }
+
+try {
+    $rcols = db()->query("SHOW COLUMNS FROM users LIKE 'role'")->fetchAll();
+    if (empty($rcols)) {
+        db()->exec("ALTER TABLE users ADD COLUMN role ENUM('user','seller','admin') DEFAULT 'user'");
+        db()->exec("ALTER TABLE users ADD COLUMN restaurant_id INT DEFAULT NULL");
     }
 } catch (Exception $e) { /* ignore */ }
 
