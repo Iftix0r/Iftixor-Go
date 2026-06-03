@@ -38,9 +38,10 @@ function mainKeyboard(bool $hasPhone, string $role = 'user'): array {
 function roleInlineButtons(string $role): array {
     if ($role === 'seller') {
         return ['inline_keyboard' => [
-            [['text' => '📦 Buyurtmalar',    'callback_data' => 'seller_orders']],
-            [['text' => '🍽️ Menyu boshqarish','callback_data' => 'seller_menu']],
-            [['text' => '📊 Statistika',     'callback_data' => 'seller_stats']],
+            [['text' => '📦 Buyurtmalar',     'callback_data' => 'seller_orders'],
+             ['text' => '📊 Statistika',      'callback_data' => 'seller_stats']],
+            [['text' => '🍽️ Menyu',           'callback_data' => 'seller_menu']],
+            [['text' => '⚙️ Sozlamalar',       'callback_data' => 'seller_settings']],
         ]];
     }
     if ($role === 'admin') {
