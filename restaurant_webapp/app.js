@@ -9,7 +9,8 @@ let state = {
   restaurant: null,
   products: [],
   categories: [],
-  stats: { views: 0, total_orders: 0 }
+  orders: [],
+  stats: { views: 0, total_orders: 0, total_products_sold: 0, total_revenue: 0 }
 };
 
 function $(id) { return document.getElementById(id); }
@@ -53,17 +54,21 @@ async function loadData() {
   state.restaurant = res.restaurant;
   state.products = res.products || [];
   state.categories = res.categories || [];
-  state.stats = res.stats || { views: 0, total_orders: 0 };
+  state.orders = res.orders || [];
+  state.stats = res.stats || { views: 0, total_orders: 0, total_products_sold: 0, total_revenue: 0 };
   
   $('restName').textContent = state.restaurant.name;
   $('statViews').textContent = state.stats.views;
+  $('statSold').textContent = state.stats.total_products_sold;
   $('statOrders').textContent = state.stats.total_orders;
+  $('statRevenue').textContent = Number(state.stats.total_revenue).toLocaleString() + " so'm";
   
   const catSelect = $('prodCategory');
   catSelect.innerHTML = '<option value="">Kategoriya tanlang</option>' + 
     state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     
   renderProducts();
+  renderOrders();
 }
 
 async function createRestaurant() {
@@ -94,7 +99,7 @@ function renderProducts() {
   
   list.innerHTML = state.products.map(p => `
     <div class="card">
-      <div class="card-title">${p.name}</div>
+      <div class="card-title">${p.name} ${parseInt(p.available) ? '' : '❌'}</div>
       <div class="card-sub">${p.description || 'Tavsif yo\'q'}</div>
       <div class="card-price">${Number(p.price).toLocaleString()} so'm</div>
       <div class="card-actions">
@@ -102,6 +107,42 @@ function renderProducts() {
       </div>
     </div>
   `).join('');
+}
+
+function renderOrders() {
+  const list = $('ordersList');
+  if (!state.orders.length) {
+    list.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--subtext)">Hali buyurtmalar yo\'q</div>';
+    return;
+  }
+  
+  const statuses = {
+    'new': { text: 'Yangi', cls: 'status-new' },
+    'confirmed': { text: 'Tasdiqlangan', cls: 'status-confirmed' },
+    'cooking': { text: 'Tayyorlanmoqda', cls: 'status-confirmed' },
+    'delivered': { text: 'Yetkazilgan', cls: 'status-confirmed' },
+    'cancelled': { text: 'Bekor qilingan', cls: '' }
+  };
+  
+  list.innerHTML = state.orders.map(o => {
+    let itemsStr = '';
+    try {
+      const parsed = JSON.parse(o.items);
+      itemsStr = parsed.map(i => `${i.qty}x ${i.name}`).join(', ');
+    } catch(e){}
+    
+    const s = statuses[o.status] || { text: o.status, cls: '' };
+    
+    return `
+    <div class="card">
+      <div class="order-header">
+        <span>Buyurtma #${o.id}</span>
+        <span class="order-status ${s.cls}">${s.text}</span>
+      </div>
+      <div class="order-items">${itemsStr}</div>
+      <div class="card-price">${Number(o.my_total).toLocaleString()} so'm</div>
+    </div>
+  `}).join('');
 }
 
 function switchPage(page) {
