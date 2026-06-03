@@ -90,48 +90,60 @@ if ($message) {
     // Future plain‑text commands can be handled here
 }
 
-if ($callback) {
-    $chatId = $callback['message']['chat']['id'];
-    $cbId = $callback['id'];
-    $data = $callback['data'];
-    answerCallbackQuery($cbId);
-    // Route based on prefix
-    if (strpos($data, 'admin_') === 0) {
-        $action = substr($data, 6); // remove "admin_"
-        switch ($action) {
-            case 'restaurants':
-                listRestaurants($chatId);
-                break;
-            case 'orders':
-                listOrders($chatId);
-                break;
-            case 'taxi':
-                listTaxiOrders($chatId);
-                break;
-            case 'users':
-                listUsers($chatId);
-                break;
-            case 'stats':
-                showStats($chatId);
-                break;
-            case 'rest_detail':
-                // Expected format: admin_rest_detail:<id>
-                $parts = explode(':', $data);
-                $restId = $parts[1] ?? null;
-                if ($restId) viewRestaurant($chatId, $restId);
-                break;
-            case 'rest_delete':
-                $parts = explode(':', $data);
-                $restId = $parts[1] ?? null;
-                if ($restId) deleteRestaurant($chatId, $restId);
-                break;
-            // Add more cases (order_detail, user_detail, etc.) as needed
-            default:
-                sendMessage($chatId, "❓ Noma'lum admin amali: $action");
+    // Process callback queries (inline button presses)
+    if ($callback) {
+        // Safely obtain chat ID (may be absent in some callbacks)
+        $chatId = $callback['message']['chat']['id'] ?? $callback['from']['id'];
+        $cbId   = $callback['id'];
+        $data   = $callback['data'];
+        // Acknowledge the callback to remove loading spinner
+        answerCallbackQuery($cbId);
+
+        // Ensure only authorized admins can use the admin panel
+        if (!in_array($chatId, ADMIN_IDS, true)) {
+            sendMessage($chatId, "🚫 Siz admin emasligingiz sababli bu amalni bajara olmaysiz.");
+            exit;
         }
+
+        // Handle admin-prefixed callbacks
+        if (strpos($data, 'admin_') === 0) {
+            $action = substr($data, 6); // strip "admin_"
+            switch ($action) {
+                case 'restaurants':
+                    listRestaurants($chatId);
+                    break;
+                case 'orders':
+                    listOrders($chatId);
+                    break;
+                case 'taxi':
+                    listTaxiOrders($chatId);
+                    break;
+                case 'users':
+                    listUsers($chatId);
+                    break;
+                case 'stats':
+                    showStats($chatId);
+                    break;
+                case 'rest_detail':
+                    $parts = explode(':', $data);
+                    $restId = $parts[1] ?? null;
+                    if ($restId) viewRestaurant($chatId, (int)$restId);
+                    break;
+                case 'rest_delete':
+                    $parts = explode(':', $data);
+                    $restId = $parts[1] ?? null;
+                    if ($restId) deleteRestaurant($chatId, (int)$restId);
+                    break;
+                // Add more admin actions here as needed
+                default:
+                    sendMessage($chatId, "❓ Noma'lum admin amali: $action");
+            }
+        } else {
+            // Non‑admin callback – simply acknowledge
+            sendMessage($chatId, "⚙️ Bot faqat admin paneli uchun.");
+        }
+        exit; // Stop further processing for callbacks
     }
-    exit;
-}
 
 // ---------- Helper implementations (place‑holders) ----------
 
