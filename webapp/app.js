@@ -134,22 +134,72 @@ let currentService = null;
 
 function selectService(type) {
   currentService = type;
+  showAllNavs('none');
+  const cartBtn = $('cartBtn');
   if (type === 'food') {
+    $('navFood').style.display = 'flex';
+    if (cartBtn) cartBtn.style.display = 'flex';
     showPage('home');
-    setActiveNav('navFood');
+    setFoodNav('navFoodMenu');
   } else if (type === 'taxi') {
-    // Pre-fill taxi phone from profile
+    $('navTaxi').style.display = 'flex';
+    if (cartBtn) cartBtn.style.display = 'none';
     const ph = $('profilePhone')?.value?.trim() || '';
     if (ph) { const tp = $('taxiPhone'); if (tp) tp.value = ph; }
     showPage('taxi');
-    setActiveNav('navTaxi');
+    setTaxiNav('navTaxiMain');
   }
 }
 
-function setActiveNav(activeId) {
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const el = $(activeId);
-  if (el) el.classList.add('active');
+function navTo(name) {
+  if (name === 'service') {
+    showAllNavs('none');
+    $('navHome').style.display = 'flex';
+    const cartBtn = $('cartBtn');
+    if (cartBtn) cartBtn.style.display = 'none';
+    showPage('service');
+    currentService = null;
+    return;
+  }
+  showPage(name);
+  if (name === 'profile') { loadProfile(); loadOrderHistory(); }
+  if (name === 'cart') renderCart();
+  if (name !== 'checkout' && name !== 'success' && name !== 'taxi-success') {
+    if (tg?.BackButton) tg.BackButton.hide();
+  }
+}
+
+function showFoodPage(name) {
+  showPage(name);
+  if (name === 'home')    setFoodNav('navFoodMenu');
+  if (name === 'cart')   { renderCart(); setFoodNav('navFoodCart'); }
+  if (name === 'profile'){ loadProfile(); loadOrderHistory(); setFoodNav('navFoodProfile'); }
+}
+
+function showTaxiPage(name) {
+  showPage(name);
+  if (name === 'taxi')   setTaxiNav('navTaxiMain');
+  if (name === 'profile'){ loadProfile(); loadOrderHistory(); setTaxiNav('navTaxiProfile'); }
+}
+
+function setFoodNav(activeId) {
+  ['navFoodMenu','navFoodCart','navFoodProfile'].forEach(id => {
+    const el = $(id); if (el) el.classList.remove('active');
+  });
+  const el = $(activeId); if (el) el.classList.add('active');
+}
+
+function setTaxiNav(activeId) {
+  ['navTaxiMain','navTaxiProfile'].forEach(id => {
+    const el = $(id); if (el) el.classList.remove('active');
+  });
+  const el = $(activeId); if (el) el.classList.add('active');
+}
+
+function showAllNavs(val) {
+  ['navHome','navFood','navTaxi'].forEach(id => {
+    const el = $(id); if (el) el.style.display = val;
+  });
 }
 
 // ── SPLASH ──
@@ -181,7 +231,10 @@ async function init() {
     renderCart();
     updateCartBadge();
     showPage('service');
-    setActiveNav('navService');
+    $('navHome').style.display = 'flex';
+    const cartBtn = $('cartBtn');
+    if (cartBtn) cartBtn.style.display = 'none';
+    if (tg?.BackButton) tg.BackButton.hide();
   } catch(e) {
     console.warn('Init error:', e);
     const hName = $('headerName');
@@ -730,10 +783,10 @@ function showOrderSuccess(orderId, total) {
       <div id="successStatus" class="success-status-badge status-new">⏳ Tasdiqlanmoqda...</div>
       <div class="success-desc">30–60 daqiqada yetkazamiz 🚀</div>
       <div class="success-actions">
-        <button class="btn-primary" onclick="navTo('profile', $('navProfile'));scrollToOrders()" style="margin-bottom:8px">
+        <button class="btn-primary" onclick="showFoodPage('profile');scrollToOrders()" style="margin-bottom:8px">
           📋 Buyurtmalarimni ko'rish
         </button>
-        <button class="btn-secondary" onclick="navTo('service', null)">
+        <button class="btn-secondary" onclick="navTo('service')">
           Menyuga qaytish
         </button>
       </div>`;
@@ -851,19 +904,7 @@ function showPage(name) {
   if (name !== 'success') stopOrderPolling();
 }
 
-function navTo(name, el) {
-  showPage(name);
-  if (el) {
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    el.classList.add('active');
-  }
-  if (name === 'profile') { loadProfile(); loadOrderHistory(); }
-  if (name === 'cart') renderCart();
-  if (name === 'service') setActiveNav('navService');
-  if (name !== 'checkout' && name !== 'success') {
-    if (tg?.BackButton) tg.BackButton.hide();
-  }
-}
+
 
 // ── HELPERS ──
 function setText(id, val) {
@@ -950,7 +991,7 @@ async function submitTaxi() {
         <div class="taxi-route-row"><span class="taxi-dot taxi-dot-to"></span><span>${esc(to)}</span></div>
       </div>`;
     showPage('taxi-success');
-    setActiveNav('navTaxi');
+    setTaxiNav('navTaxiMain');
   } else {
     playSound('error');
     toast('❌ Xatolik yuz berdi, qayta urinib ko\'ring!');
@@ -962,11 +1003,11 @@ if (tg?.BackButton) {
   tg.BackButton.onClick(() => {
     const active = document.querySelector('.page.active');
     if (active?.id === 'page-checkout') {
-      navTo('cart', $('navCart'));
+      showFoodPage('cart');
     } else if (active?.id === 'page-success') {
-      navTo('service', null);
+      navTo('service');
     } else if (active?.id === 'page-taxi-success') {
-      navTo('taxi', null);
+      showTaxiPage('taxi');
     } else {
       tg.BackButton.hide();
     }

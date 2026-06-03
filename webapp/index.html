@@ -36,7 +36,7 @@
         <div class="header-sub">Assalomu alaykum 👋</div>
       </div>
     </div>
-    <div class="cart-btn" id="cartBtn" onclick="navTo('cart', $('navCart'))">
+    <div class="cart-btn" id="cartBtn" onclick="showFoodPage('cart')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="white" stroke-width="2" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="white" stroke-width="2"/><path d="M16 10a4 4 0 01-8 0" stroke="white" stroke-width="2"/></svg>
       <span class="cart-badge" id="cartBadge">0</span>
     </div>
@@ -152,7 +152,7 @@
     </div>
     <div style="padding:0 16px">
       <button class="btn-primary" onclick="submitTaxi()">Taxi chaqirish 🚖</button>
-      <button class="btn-secondary" onclick="navTo('service', null)" style="margin-top:8px">Orqaga</button>
+      <button class="btn-secondary" onclick="navTo('service')" style="margin-top:8px">Orqaga</button>
     </div>
   </div>
 
@@ -163,8 +163,8 @@
       <div id="taxiSuccessInfo" class="taxi-success-info"></div>
       <div class="success-desc">Haydovchi siz bilan bog'lanadi 📞</div>
       <div class="success-actions" style="margin-top:24px">
-        <button class="btn-primary" onclick="navTo('taxi', null)">Yana taxi chaqirish</button>
-        <button class="btn-secondary" onclick="navTo('service', null)" style="margin-top:8px">Bosh sahifaga</button>
+        <button class="btn-primary" onclick="showTaxiPage('taxi')">Yana taxi chaqirish</button>
+        <button class="btn-secondary" onclick="navTo('service')" style="margin-top:8px">Bosh sahifaga</button>
       </div>
     </div>
   </div>
@@ -198,33 +198,58 @@
     <div class="total-bar" id="checkoutTotalBar"></div>
     <div style="padding:0 16px 16px">
       <button class="btn-primary btn-order" onclick="submitOrder()">Buyurtma berish</button>
-      <button class="btn-secondary" onclick="navTo('cart', $('navCart'))">Orqaga</button>
+      <button class="btn-secondary" onclick="showFoodPage('cart')">Orqaga</button>
     </div>
   </div>
 
-  <nav class="bottom-nav" id="bottomNav">
-    <div class="nav-item" onclick="navTo('service', this)" id="navService">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-      <span>Bosh</span>
-    </div>
-    <div class="nav-item" onclick="selectService('food')" id="navFood">
+  <!-- NAV: Bosh sahifa -->
+  <nav class="bottom-nav" id="navHome">
+    <div class="nav-item active" onclick="selectService('food')">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="currentColor" stroke-width="2"/></svg>
       <span>Ovqatlar</span>
     </div>
-    <div class="nav-item" onclick="selectService('taxi')" id="navTaxi">
+    <div class="nav-item" onclick="selectService('taxi')">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 9V7a3 3 0 013-3h8a3 3 0 013 3v2" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="16" r="1.5" fill="currentColor"/><circle cx="17" cy="16" r="1.5" fill="currentColor"/></svg>
       <span>Taxi</span>
     </div>
-    <div class="nav-item" onclick="navTo('cart', this)" id="navCart">
+  </nav>
+
+  <!-- NAV: Ovqatlar -->
+  <nav class="bottom-nav" id="navFood" style="display:none">
+    <div class="nav-item active" onclick="showFoodPage('home')" id="navFoodMenu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Menyu</span>
+    </div>
+    <div class="nav-item" onclick="showFoodPage('cart')" id="navFoodCart">
       <div class="nav-cart-wrap">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2"/><path d="M16 10a4 4 0 01-8 0" stroke="currentColor" stroke-width="2"/></svg>
         <span class="nav-badge" id="navCartBadge" style="display:none">0</span>
       </div>
       <span>Savat</span>
     </div>
-    <div class="nav-item" onclick="navTo('profile', this)" id="navProfile">
+    <div class="nav-item" onclick="showFoodPage('profile')" id="navFoodProfile">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
       <span>Profil</span>
+    </div>
+    <div class="nav-item" onclick="navTo('service')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Bosh</span>
+    </div>
+  </nav>
+
+  <!-- NAV: Taxi -->
+  <nav class="bottom-nav" id="navTaxi" style="display:none">
+    <div class="nav-item active" onclick="showTaxiPage('taxi')" id="navTaxiMain">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 9V7a3 3 0 013-3h8a3 3 0 013 3v2" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="16" r="1.5" fill="currentColor"/><circle cx="17" cy="16" r="1.5" fill="currentColor"/></svg>
+      <span>Taxi</span>
+    </div>
+    <div class="nav-item" onclick="showTaxiPage('profile')" id="navTaxiProfile">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Profil</span>
+    </div>
+    <div class="nav-item" onclick="navTo('service')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Bosh</span>
     </div>
   </nav>
 </div>
