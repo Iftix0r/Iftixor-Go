@@ -33,7 +33,8 @@ async function post(action, data = {}) {
 }
 
 async function loadData() {
-  const res = await post('rest_get_data');
+  const json = await post('rest_get_data');
+  const res = json.data || {};
   
   if (res.needs_creation) {
     switchPage('create');
@@ -43,8 +44,8 @@ async function loadData() {
     return;
   }
   
-  if (res.success === false) {
-    tg.showAlert(res.error || 'Ma\'lumot yuklashda xatolik!');
+  if (json.success === false) {
+    tg.showAlert(res || 'Ma\'lumot yuklashda xatolik!');
     return;
   }
   
@@ -81,12 +82,12 @@ async function createRestaurant() {
     return;
   }
   
-  const res = await post('rest_create', { name, phone, address });
-  if (res.success) {
+  const json = await post('rest_create', { name, phone, address });
+  if (json.success) {
     tg.HapticFeedback.notificationOccurred('success');
     loadData();
   } else {
-    tg.showAlert(res.error || "Xatolik yuz berdi");
+    tg.showAlert(json.data || "Xatolik yuz berdi");
   }
 }
 
@@ -199,13 +200,13 @@ async function saveProduct() {
     return;
   }
   
-  const res = await post('rest_save_product', data);
-  if(res.success) {
+  const json = await post('rest_save_product', data);
+  if(json.success) {
     closeProductModal();
     tg.HapticFeedback.notificationOccurred('success');
     loadData(); // reload
   } else {
-    tg.showAlert(res.error || 'Saqlashda xatolik');
+    tg.showAlert(json.data || 'Saqlashda xatolik');
   }
 }
 
