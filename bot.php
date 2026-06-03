@@ -13,6 +13,19 @@ set_exception_handler(function(Throwable $e) {
 require_once 'config.php';
 require_once 'db.php';
 
+// role va restaurant_id ustunlari yo'q bo'lsa qo'shish
+try {
+    $cols = db()->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('role', $cols)) {
+        db()->exec("ALTER TABLE users ADD COLUMN role ENUM('user','seller','admin') DEFAULT 'user'");
+    }
+    if (!in_array('restaurant_id', $cols)) {
+        db()->exec("ALTER TABLE users ADD COLUMN restaurant_id INT DEFAULT NULL");
+    }
+} catch (Throwable $e) {
+    file_put_contents(__DIR__ . '/bot_error.log', date('Y-m-d H:i:s') . ' ALTER: ' . $e->getMessage() . "\n", FILE_APPEND);
+}
+
 function tg(string $method, array $params): array {
     $ch = curl_init("https://api.telegram.org/bot".BOT_TOKEN."/$method");
     curl_setopt_array($ch, [
