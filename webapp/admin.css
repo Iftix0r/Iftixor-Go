@@ -254,39 +254,72 @@ body {
 /* ══ ORDERS ══ */
 .orders-list { }
 .order-row {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--border);
-  transition: background .12s;
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 18px;
+  border-radius: calc(var(--radius) - 4px);
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 12px;
+  transition: transform .18s, background .18s, border-color .18s, box-shadow .18s;
 }
-.order-row:last-child { border-bottom: none; }
-.order-row:hover { background: var(--bg-hover); }
+.order-row:last-child { margin-bottom: 0; }
+.order-row:hover {
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.12);
+  box-shadow: 0 16px 40px rgba(0,0,0,.12);
+  transform: translateY(-1px);
+}
 .order-avatar {
-  width: 38px; height: 38px; border-radius: 50%;
+  width: 42px; height: 42px; border-radius: 50%;
   object-fit: cover; flex-shrink: 0;
   background: var(--bg-hover);
 }
 .order-details { flex: 1; min-width: 0; }
 .order-top {
-  display: flex; align-items: center; gap: 7px;
-  margin-bottom: 3px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 4px; flex-wrap: wrap;
 }
 .order-id { font-weight: 700; color: var(--accent); font-size: 13px; }
-.order-amount { font-weight: 700; font-size: 13px; margin-left: auto; color: var(--text); }
-.order-client { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.order-amount { font-weight: 700; font-size: 13px; margin-left: auto; color: var(--text); white-space: nowrap; }
+.order-client { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
 .order-uname { font-size: 11px; color: var(--text-dim); font-weight: 400; }
 .order-items-text {
   font-size: 12px; color: var(--text-dim);
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 340px;
 }
-.order-note { font-size: 11.5px; color: var(--gold); margin-bottom: 4px; }
+.order-note { font-size: 11.5px; color: var(--gold); margin-bottom: 6px; }
 .order-meta {
   display: flex; gap: 10px; flex-wrap: wrap;
   font-size: 11.5px; color: var(--text-dim); align-items: center;
 }
-.order-ctrl { flex-shrink: 0; }
+.order-ctrl { flex-shrink: 0; display: flex; align-items: center; }
+.order-ctrl .status-select { min-width: 165px; }
+
+.taxi-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 18px;
+  border-radius: calc(var(--radius) - 4px);
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 12px;
+  transition: transform .18s, background .18s, border-color .18s, box-shadow .18s;
+  cursor: pointer;
+}
+.taxi-row:last-child { margin-bottom: 0; }
+.taxi-row:hover {
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.12);
+  box-shadow: 0 14px 32px rgba(0,0,0,.1);
+  transform: translateY(-1px);
+}
+.taxi-row-main { flex: 1; min-width: 0; }
+.taxi-row-title { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+.taxi-row-meta { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+.taxi-row-address { font-size: 13px; color: var(--text); opacity: .92; line-height: 1.5; word-break: break-word; }
+.taxi-row-right { display: flex; align-items: center; justify-content: flex-end; min-width: 100px; }
+.taxi-row-right .badge { white-space: nowrap; }
 
 /* ══ STATUS BADGES ══ */
 .badge {
@@ -300,6 +333,10 @@ body {
 .badge-cooking   { background: rgba(249,115,22,.12);  color: var(--orange); }
 .badge-delivered { background: rgba(168,85,247,.12);  color: var(--purple); }
 .badge-cancelled { background: rgba(239,68,68,.12);   color: var(--red); }
+.badge-accepted  { background: rgba(34,197,94,.12);   color: var(--green); }
+.badge-on_way    { background: rgba(249,115,22,.12);  color: var(--orange); }
+.badge-arrived   { background: rgba(59,130,246,.12);  color: var(--blue); }
+.badge-success   { background: rgba(34,197,94,.12);   color: var(--green); }
 
 /* Status select */
 .status-select {
