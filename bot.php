@@ -612,7 +612,7 @@ if (isset($update['callback_query'])) {
             if (!$mine || $o['status'] === 'cancelled') continue;
             $rev = array_sum(array_map(fn($i) => $i['price']*$i['qty'], $mine));
             $total += $rev; $count++;
-            if (str_starts_with($o['created_at'], $todayDate)) { $today++; $todayRev += $rev; }
+            if (strpos($o['created_at'], $todayDate) === 0) { $today++; $todayRev += $rev; }
         }
         $text = "📊 *Statistika: {$rest['name']}*\n\n"
               . "📅 Bugun: {$today} ta buyurtma, ".number_format($todayRev)." so'm\n"
@@ -720,7 +720,7 @@ if (isset($msg['location'])) {
 $text = trim($msg['text'] ?? '');
 
 // ── STATE handler: sotuvchi jarayon ──
-if ($userRole === 'seller' && $text && !str_starts_with($text, '/')) {
+if ($userRole === 'seller' && $text && strpos($text, '/') !== 0) {
     $st = getSellerState($chatId);
     if ($st['state']) {
         $rest = getSellerRestaurant($chatId);
@@ -942,6 +942,6 @@ elseif ($text === 'ℹ️ Haqida') {
 elseif ($text && preg_match('~^(/|start)~i', $text)) {
     sendMsg($chatId, "❓ Bot buyruqni qabul qildi, lekin hozirda u yo'naltirilmagan. /start ni qaytatdan yuboring.");
 }
-elseif ($text && str_starts_with($text, '/')) {
+elseif ($text && strpos($text, '/') === 0) {
     sendMsg($chatId, "❓ Bu buyruq tanilmadi. Boshlash uchun /start ni yuboring.");
 }
