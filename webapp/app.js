@@ -382,7 +382,9 @@ async function submitOrder() {
   const address = $('checkoutAddress').value.trim();
   const note = $('checkoutNote').value.trim();
   if (!phone) return toast('Telefon raqam kiriting!');
+  if (!/^\+?[\d\s\-\(\)]{7,15}$/.test(phone)) return toast('Telefon raqam noto\'g\'ri format!');
   if (!address) return toast('Manzil kiriting!');
+  if (address.length < 5) return toast('Manzilni to\'liq kiriting!');
 
   const btn = document.querySelector('.btn-order');
   if (btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
@@ -392,8 +394,6 @@ async function submitOrder() {
     items: cart.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
     phone, address, note
   });
-
-  if (btn) { btn.disabled = false; btn.textContent = 'Buyurtma berish'; }
 
   if (res.success) {
     cart = [];
@@ -447,6 +447,7 @@ async function saveProfile() {
   if (!(tgUser && tgUser.id)) return toast('Telegram orqali kirish kerak!');
   const phone = $('profilePhone').value.trim();
   const address = $('profileAddress').value.trim();
+  if (phone && !/^\+?[\d\s\-\(\)]{7,15}$/.test(phone)) return toast('Telefon raqam noto\'g\'ri!');
   const res = await post('update_profile', { user_id: tgUser.id, phone, address });
   if (res.success) {
     toast('✓ Saqlandi!');

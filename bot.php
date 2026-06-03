@@ -89,9 +89,8 @@ $firstName = $from['first_name'] ?? 'Foydalanuvchi';
 if ($text === '/start') {
     $welcome = "👋 Assalomu alaykum, *$firstName*!\n\n"
              . "🍽️ *Iftixor Go* — tez va qulay ovqat buyurtmasi\n\n"
-             . "Quyidagi tugmani bosib menu ochishingiz mumkin 👇";
+             . "Quyidagi tugmani bosib buyurtma bering 👇";
 
-    // STEP 1: Inline keyboard bilan Web App tugmasi (bu initDataUnsafe ni to'g'ri beradi)
     tg('sendMessage', [
         'chat_id' => $chatId,
         'text' => $welcome,
@@ -99,15 +98,7 @@ if ($text === '/start') {
         'reply_markup' => [
             'inline_keyboard' => [
                 [['text' => '🛒 Buyurtma berish', 'web_app' => ['url' => WEBAPP_URL]]],
-            ]
-        ]
-    ]);
-
-    // STEP 2: Reply keyboard (boshqa tugmalar uchun)
-    tg('sendMessage', [
-        'chat_id' => $chatId,
-        'text' => "Qo'shimcha imkoniyatlar:",
-        'reply_markup' => [
+            ],
             'keyboard' => [
                 [['text' => '📋 Buyurtmalarim'], ['text' => '👤 Profil']],
                 [['text' => '📞 Bog\'lanish'], ['text' => 'ℹ️ Haqida']],

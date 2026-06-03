@@ -18,11 +18,8 @@ function resp($data, $success = true): void {
 }
 
 function requireAdmin(): void {
-    global $input;
     $tgUser = validateInitData(getInitDataFromRequest());
     if ($tgUser && isAdminId((int)$tgUser['id'])) return;
-    $adminId = (int)($input['admin_id'] ?? $_GET['admin_id'] ?? 0);
-    if ($adminId && isAdminId($adminId)) return;
     resp('Unauthorized', false);
 }
 
@@ -227,10 +224,11 @@ switch ($action) {
         $sql = "SELECT o.*, u.first_name, u.last_name, u.username, u.photo_url, u.phone as user_phone
                 FROM orders o LEFT JOIN users u ON o.user_id=u.id";
         if ($status) {
-            $s = db()->prepare($sql." WHERE o.status=? ORDER BY o.created_at DESC LIMIT $limit");
-            $s->execute([$status]);
+            $s = db()->prepare($sql." WHERE o.status=? ORDER BY o.created_at DESC LIMIT ?");
+            $s->execute([$status, $limit]);
         } else {
-            $s = db()->query($sql." ORDER BY o.created_at DESC LIMIT $limit");
+            $s = db()->prepare($sql." ORDER BY o.created_at DESC LIMIT ?");
+            $s->execute([$limit]);
         }
         $list = $s->fetchAll();
         foreach ($list as &$o) $o['items'] = json_decode($o['items'], true);
@@ -361,6 +359,50 @@ switch ($action) {
 
     case 'admin_categories':
         resp(db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll());
+        break;
+
+    case 'admin_add_category':
+        $name = trim($input['name'] ?? '');
+        $icon = trim($input['icon'] ?? '🍽️');
+        $sort = (int)($input['sort_order'] ?? 0);
+        if (!$name) resp('Missing name', false);
+        $s = db()->prepare("INSERT INTO categories (name, icon, sort_order) VALUES (?,?,?)");
+        $s->execute([$name, $icon, $sort]);
+        resp(['id' => db()->lastInsertId()]);
+        break;
+
+    case 'admin_edit_category':
+        $id   = $input['id'] ?? 0;
+        $name = trim($input['name'] ?? '');
+        $icon = trim($input['icon'] ?? '');
+        $sort = (int)($input['sort_order'] ?? 0);
+        if (!$id || !$name) resp('Missing data', false);
+        db()->prepare("UPDATE categories SET name=?, icon=?, sort_order=? WHERE id=?")->execute([$name, $icon, $sort, $id]);
+        resp('updated');
+        break;
+
+    case 'admin_delete_category':
+        $id = $input['id'] ?? 0;
+        if (!$id) resp('Missing id', false);
+        // Check if has products
+        $cnt = db()->prepare("SELECT COUNT(*) FROM products WHERE category_id=?");
+        $cnt->execute([$id]);
+        if ($cnt->fetchColumn() > 0) resp("Bu kategoriyada mahsulotlar bor, avval ularni o'chiring", false);
+        db()->prepare("DELETE FROM categories WHERE id=?")->execute([$id]);
+        resp('deleted');
+        break;
+
+    case 'admin_revenue_chart':
+        // So'nggi 7 kun daromadi
+        $rows = db()->query(
+            "SELECT DATE(created_at) as day, COUNT(*) as orders, COALESCE(SUM(total),0) as revenue
+             FROM orders
+             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+               AND status != 'cancelled'
+             GROUP BY DATE(created_at)
+             ORDER BY day ASC"
+        )->fetchAll();
+        resp($rows);
         break;
 
     case 'admin_products':

@@ -50,6 +50,12 @@
       Mahsulotlar
     </a>
 
+    <div class="nav-section">Katalog</div>
+    <a class="nav-link" onclick="switchTab('categories')" id="tab-categories">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Kategoriyalar
+    </a>
+
     <div class="nav-section">Xabarlar</div>
     <a class="nav-link" onclick="switchTab('broadcast')" id="tab-broadcast">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -148,12 +154,22 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <h2>Yangi buyurtmalar</h2>
-        <button class="btn-sm" onclick="switchTab('orders')" style="font-size:12px">Barchasi →</button>
+    <div class="dash-bottom-grid">
+      <div class="card">
+        <div class="card-header">
+          <h2>So'nggi 7 kun daromadi</h2>
+        </div>
+        <div style="padding:16px 18px 8px">
+          <canvas id="revenueChart" width="560" height="140" style="width:100%;height:140px"></canvas>
+        </div>
       </div>
-      <div id="recentOrders"><div class="empty-state" style="padding:40px"><p style="color:var(--text-dim)">Yuklanmoqda...</p></div></div>
+      <div class="card">
+        <div class="card-header">
+          <h2>Yangi buyurtmalar</h2>
+          <button class="btn-sm" onclick="switchTab('orders')" style="font-size:12px">Barchasi →</button>
+        </div>
+        <div id="recentOrders"><div class="empty-state" style="padding:40px"><p style="color:var(--text-dim)">Yuklanmoqda...</p></div></div>
+      </div>
     </div>
   </section>
 
@@ -210,12 +226,30 @@
   <section class="tab-content" id="content-products">
     <div class="page-header">
       <div><h1>Mahsulotlar</h1></div>
-      <button class="btn-primary" onclick="showAddProduct()">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-        Yangi mahsulot
-      </button>
+      <div class="header-actions">
+        <button class="btn-sm" onclick="switchTab('categories')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Kategoriyalar
+        </button>
+        <button class="btn-primary" onclick="showAddProduct()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          Yangi mahsulot
+        </button>
+      </div>
     </div>
     <div id="productsList" class="products-grid"></div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section class="tab-content" id="content-categories">
+    <div class="page-header">
+      <div><h1>Kategoriyalar</h1></div>
+      <button class="btn-primary" onclick="showAddCategory()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        Yangi kategoriya
+      </button>
+    </div>
+    <div class="card"><div id="categoriesList"><div class="empty-state" style="padding:40px"><p>Yuklanmoqda...</p></div></div></div>
   </section>
 
   <!-- BROADCAST -->
@@ -253,6 +287,37 @@
   </section>
 
 </main>
+
+<!-- Category Modal -->
+<div class="modal hidden" id="categoryModal">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-header">
+      <h3 id="catModalTitle">Yangi kategoriya</h3>
+      <button class="modal-close" onclick="closeCategoryModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editCatId">
+      <div class="form-group">
+        <label>Nomi</label>
+        <input type="text" id="catName" placeholder="Masalan: Fastfood">
+      </div>
+      <div class="form-group">
+        <label>Emoji (ixtiyoriy)</label>
+        <input type="text" id="catIcon" placeholder="🍔" maxlength="4">
+      </div>
+      <div class="form-group">
+        <label>Tartib raqami</label>
+        <input type="number" id="catSort" value="0" min="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeCategoryModal()">Bekor</button>
+      <button class="btn-primary" onclick="saveCategory()">Saqlash</button>
+    </div>
+  </div>
+</div>
 
 <!-- Product Modal -->
 <div class="modal hidden" id="productModal">

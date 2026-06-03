@@ -13,7 +13,7 @@ function apiHeaders(json) {
 }
 
 function withAdmin(action) {
-  return action + '&admin_id=' + adminId;
+  return action;
 }
 
 function showAccessDenied(msg) {
@@ -37,6 +37,10 @@ function initAdmin() {
       adminId = u.id;
       var nameEl = document.querySelector('.admin-name');
       if (nameEl) nameEl.textContent = u.first_name || 'Admin';
+      var avatarEl = document.querySelector('.admin-avatar');
+      if (avatarEl && u.photo_url) {
+        avatarEl.innerHTML = '<img src="' + u.photo_url + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover">';
+      }
     }
   }
   if (!adminId) {
@@ -50,17 +54,21 @@ function initAdmin() {
 // ── INIT ──
 window.addEventListener('load', function() {
   initAdmin();
+
+  // Auto-refresh: har 30 soniyada aktiv tab yangilanadi
   setInterval(function() {
     if (!adminReady) return;
     var active = document.querySelector('.tab-content.active');
-    if (active && active.id === 'content-dashboard') loadDashboard();
-    if (active && active.id === 'content-orders') loadOrders();
+    if (!active) return;
+    if (active.id === 'content-dashboard') loadDashboard();
+    else if (active.id === 'content-orders') loadOrders();
   }, 30000);
 
+  // Broadcast preview
   var bMsg = document.getElementById('broadcastMsg');
   if (bMsg) bMsg.addEventListener('input', function() {
     var p = document.getElementById('broadcastPreview');
-    p.textContent = this.value || 'Matn kiriting...';
+    if (p) p.textContent = this.value || 'Matn kiriting...';
   });
 });
 
@@ -77,6 +85,8 @@ function switchTab(name) {
   else if (name === 'orders') loadOrders();
   else if (name === 'users') loadUsers();
   else if (name === 'products') loadProducts();
+  else if (name === 'categories') loadCategories();
+  // Mobil sidebar yopish
   var sb = document.getElementById('sidebar');
   var ov = document.getElementById('sidebarOverlay');
   if (sb) sb.classList.remove('open');
@@ -100,27 +110,22 @@ function loadDashboard() {
     }
     if (!res.success) {
       if (res.data === 'Unauthorized') {
-        showAccessDenied('Sizda admin huquqi yo\'q. ADMIN_IDS ro\'yxatiga ID qo\'shing.');
-        return;
+        showAccessDenied('Sizda admin huquqi yo\'q. ADMIN_IDS ro\'yxatiga Telegram ID ni qo\'shing.');
       }
-      ['sTodayOrders','sTodayRevenue','sTotalUsers','sPending','sTotalOrders','sTotalRevenue','sBlockedUsers'].forEach(function(id){ setText(id, '—'); });
-      document.getElementById('recentOrders').innerHTML = '<div style="padding:20px;text-align:center;color:var(--red);font-size:13px">⚠️ Server ulanmadi — F12 Console da xatoni tekshiring</div>';
-      // Console da batafsil
-      fetch(API + '?action=admin_stats').then(function(r){ return r.text(); }).then(function(t){ console.error('[Admin] admin_stats raw:', t); }).catch(function(e){ console.error('[Admin] fetch error:', e); });
       return;
     }
     var d = res.data;
     setText('sTodayOrders', d.today_orders);
-    setText('sTodayRevenue', fmt(d.today_revenue));
+    setText('sTodayRevenue', fmtFull(d.today_revenue));
     setText('sTotalUsers', d.total_users);
     setText('sPending', d.pending_orders);
     setText('sTotalOrders', d.total_orders);
-    setText('sTotalRevenue', fmt(d.total_revenue));
+    setText('sTotalRevenue', fmtFull(d.total_revenue));
+    setText('sBlockedUsers', d.blocked_users || 0);
     var badge = document.getElementById('pendingBadge');
     if (badge) { badge.textContent = d.pending_orders; badge.style.display = d.pending_orders > 0 ? 'flex' : 'none'; }
-    var blkEl = document.getElementById('sBlockedUsers');
-    if (blkEl) blkEl.textContent = d.blocked_users || 0;
   });
+
   get(withAdmin('admin_orders&status=new&limit=10')).then(function(res) {
     var el = document.getElementById('recentOrders');
     if (!res.success || !res.data || !res.data.length) {
@@ -128,9 +133,63 @@ function loadDashboard() {
       return;
     }
     res.data.forEach(function(o) {
-      if (!_allOrders.find(function(x){ return x.id===o.id; })) _allOrders.push(o);
+      if (!_allOrders.find(function(x){ return x.id === o.id; })) _allOrders.push(o);
     });
     el.innerHTML = res.data.map(renderOrderRow).join('');
+  });
+
+  // Grafik
+  loadRevenueChart();
+}
+
+function loadRevenueChart() {
+  var canvas = document.getElementById('revenueChart');
+  if (!canvas) return;
+  get(withAdmin('admin_revenue_chart')).then(function(res) {
+    if (!res.success || !res.data) return;
+    drawBarChart(canvas, res.data);
+  });
+}
+
+function drawBarChart(canvas, data) {
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!data.length) {
+    ctx.fillStyle = '#7c809a';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Ma\'lumot yo\'q', W/2, H/2);
+    return;
+  }
+  var maxRev = Math.max.apply(null, data.map(function(d){ return +d.revenue || 0; })) || 1;
+  var pad = 36, barW = Math.floor((W - pad*2) / data.length) - 6;
+  var days = ['Yak','Du','Se','Ch','Pa','Sh','Han'];
+  data.forEach(function(d, i) {
+    var x = pad + i * (barW + 6);
+    var barH = Math.round(((+d.revenue || 0) / maxRev) * (H - 60));
+    var y = H - 28 - barH;
+    // Bar
+    var grad = ctx.createLinearGradient(0, y, 0, H-28);
+    grad.addColorStop(0, 'rgba(255,107,53,0.9)');
+    grad.addColorStop(1, 'rgba(255,107,53,0.3)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, barW, barH, [4,4,0,0]) : ctx.rect(x, y, barW, barH);
+    ctx.fill();
+    // Day label
+    var date = new Date(d.day);
+    ctx.fillStyle = '#7c809a';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(days[date.getDay()], x + barW/2, H - 10);
+    // Value
+    if (barH > 22) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px sans-serif';
+      var short = +d.revenue >= 1000 ? Math.round(+d.revenue/1000)+'k' : +d.revenue;
+      ctx.fillText(short, x + barW/2, y + 14);
+    }
   });
 }
 
@@ -158,7 +217,6 @@ function renderOrderRow(o) {
   var photo = o.photo_url
     ? '<img src="' + o.photo_url + '" class="order-avatar" onerror="this.src=\''+avatarUrl(o.first_name)+'\'">'
     : '<img src="' + avatarUrl(o.first_name) + '" class="order-avatar">';
-
   var statusMap = { new:'Yangi', confirmed:'Qabul', cooking:'Tayyorlanmoqda', delivered:'Yetkazildi', cancelled:'Bekor' };
 
   return '<div class="order-row" onclick="showOrderDetail(' + o.id + ')" style="cursor:pointer">' +
@@ -167,7 +225,7 @@ function renderOrderRow(o) {
       '<div class="order-top">' +
         '<span class="order-id">#' + o.id + '</span>' +
         '<span class="badge badge-' + o.status + '">' + (statusMap[o.status] || o.status) + '</span>' +
-        '<span class="order-amount">' + fmt(o.total) + '</span>' +
+        '<span class="order-amount">' + fmtFull(o.total) + '</span>' +
       '</div>' +
       '<div class="order-client">' + esc(name) + (uname ? ' <span class="order-uname">' + esc(uname) + '</span>' : '') + '</div>' +
       '<div class="order-items-text">' + esc(items || '—') + '</div>' +
@@ -181,10 +239,10 @@ function renderOrderRow(o) {
     '<div class="order-ctrl" onclick="event.stopPropagation()">' +
       '<select onchange="updateOrderStatus(' + o.id + ', this.value)" class="status-select">' +
         '<option value="">Holat</option>' +
-        '<option value="confirmed">✓ Qabul</option>' +
-        '<option value="cooking">⏳ Tayyorlash</option>' +
-        '<option value="delivered">✓ Yetkazildi</option>' +
-        '<option value="cancelled">✕ Bekor</option>' +
+        '<option value="confirmed"' + (o.status==='confirmed'?' selected':'') + '>✓ Qabul</option>' +
+        '<option value="cooking"'   + (o.status==='cooking'?' selected':'')   + '>⏳ Tayyorlash</option>' +
+        '<option value="delivered"' + (o.status==='delivered'?' selected':'') + '>✓ Yetkazildi</option>' +
+        '<option value="cancelled"' + (o.status==='cancelled'?' selected':'') + '>✕ Bekor</option>' +
       '</select>' +
     '</div>' +
   '</div>';
@@ -193,7 +251,6 @@ function renderOrderRow(o) {
 // ── ORDER DETAIL ──
 var _allOrders = [];
 function showOrderDetail(orderId) {
-  // orders dan topamiz (dashboard yoki orders listdan)
   var o = _allOrders.find(function(x) { return x.id == orderId; });
   if (!o) return;
   var name = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'Noma\'lum';
@@ -204,30 +261,25 @@ function showOrderDetail(orderId) {
       '<span style="font-weight:600">' + fmtFull(i.price * i.qty) + '</span>' +
     '</div>';
   }).join('');
-
   var mapsLink = o.address ? 'https://maps.google.com/?q=' + encodeURIComponent(o.address) : '';
 
   document.getElementById('orderDetailBody').innerHTML =
     '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
-      '<div>' +
-        '<div style="font-size:18px;font-weight:700">#' + o.id + ' Buyurtma</div>' +
-        '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + (o.created_at ? new Date(o.created_at.replace(' ','T')).toLocaleString('ru-RU') : '') + '</div>' +
-      '</div>' +
+      '<div><div style="font-size:18px;font-weight:700">#' + o.id + ' Buyurtma</div>' +
+      '<div style="font-size:12px;color:var(--text-dim);margin-top:2px">' + (o.created_at ? new Date(o.created_at.replace(' ','T')).toLocaleString('ru-RU') : '') + '</div></div>' +
       '<span class="badge badge-' + o.status + '">' + (statusMap[o.status] || o.status) + '</span>' +
     '</div>' +
     '<div style="padding:16px 20px">' +
       '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Mijoz</div>' +
       '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">' +
-        '<img src="' + avatarUrl(o.first_name) + '" style="width:40px;height:40px;border-radius:50%">' +
-        '<div>' +
-          '<div style="font-weight:600">' + esc(name) + '</div>' +
-          '<div style="font-size:12px;color:var(--text-dim)">' + (o.username ? '@'+esc(o.username) : 'ID: '+o.user_id) + '</div>' +
-        '</div>' +
+        '<img src="' + (o.photo_url || avatarUrl(o.first_name)) + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover">' +
+        '<div><div style="font-weight:600">' + esc(name) + '</div>' +
+        '<div style="font-size:12px;color:var(--text-dim)">' + (o.username ? '@'+esc(o.username) : 'ID: '+o.user_id) + '</div></div>' +
       '</div>' +
       '<div style="display:grid;gap:8px;margin-bottom:16px">' +
         '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-dim)">Telefon</span><span>' + esc(o.phone || '—') + '</span></div>' +
         '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-dim)">Manzil</span><span style="text-align:right;max-width:60%">' + esc(o.address || '—') + (mapsLink ? ' <a href="'+mapsLink+'" target="_blank" style="color:var(--accent);font-size:11px">🗺</a>' : '') + '</span></div>' +
-        (o.note ? '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-dim)">Izoh</span><span style="text-align:right;max-width:60%">' + esc(o.note) + '</span></div>' : '') +
+        (o.note ? '<div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-dim)">Izoh</span><span>' + esc(o.note) + '</span></div>' : '') +
       '</div>' +
       '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Mahsulotlar</div>' +
       '<div style="display:grid;gap:6px;margin-bottom:14px">' + itemsHtml + '</div>' +
@@ -251,9 +303,12 @@ function closeOrderDetail() { document.getElementById('orderDetailModal').classL
 
 function updateOrderStatus(id, status) {
   if (!status) return;
-  post('admin_update_order', { order_id: id, status: status, admin_id: adminId }).then(function(res) {
+  post('admin_update_order', { order_id: id, status: status }).then(function(res) {
     if (res.success) {
       adminToast('Buyurtma #' + id + ' yangilandi', 'success');
+      // Localda ham yangilash
+      var o = _allOrders.find(function(x){ return x.id == id; });
+      if (o) o.status = status;
       loadOrders(); loadDashboard();
     } else adminToast('Xatolik!', 'error');
   });
@@ -264,16 +319,25 @@ var searchTimer = null;
 function searchUsers() {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(function() {
-    var q = (document.getElementById('userSearch').value || '').toLowerCase();
+    var q = (document.getElementById('userSearch').value || '').toLowerCase().trim();
     var filtered = q ? allUsers.filter(function(u) {
-      return ((u.first_name || '') + ' ' + (u.last_name || '') + ' ' + (u.username || '') + ' ' + (u.phone || '')).toLowerCase().includes(q);
-    }) : allUsers;
+      return ((u.first_name||'')+' '+(u.last_name||'')+' '+(u.username||'')+' '+(u.phone||'')).toLowerCase().includes(q);
+    }) : applyUserFilter(allUsers);
     renderUsers(filtered);
   }, 300);
 }
 
+function applyUserFilter(list) {
+  var filter = (document.getElementById('userFilter') || {}).value || '';
+  if (filter === 'blocked') return list.filter(function(u){ return parseInt(u.is_blocked) === 1; });
+  if (filter === 'active')  return list.filter(function(u){ return parseInt(u.is_blocked) !== 1; });
+  return list;
+}
+
 function loadUsers() {
-  get(withAdmin('admin_users')).then(function(res) {
+  var filter = (document.getElementById('userFilter') || {}).value || '';
+  var url = 'admin_users' + (filter ? '&filter=' + filter : '');
+  get(withAdmin(url)).then(function(res) {
     if (!res.success || !res.data) return;
     allUsers = res.data;
     setText('usersCount', 'Jami: ' + allUsers.length + ' ta foydalanuvchi');
@@ -283,23 +347,27 @@ function loadUsers() {
 
 function renderUsers(list) {
   var el = document.getElementById('usersList');
-  if (!list.length) { el.className = ''; el.innerHTML = emptyState('Foydalanuvchilar topilmadi', iconUsers()); return; }
+  if (!list || !list.length) {
+    el.className = '';
+    el.innerHTML = emptyState('Foydalanuvchilar topilmadi', iconUsers());
+    return;
+  }
   el.className = 'users-grid';
   el.innerHTML = list.map(function(u) {
-    var name = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || 'Noma\'lum';
+    var name = ((u.first_name||'')+' '+(u.last_name||'')).trim() || 'Noma\'lum';
     var photo = u.photo_url
-      ? '<img src="' + u.photo_url + '" class="user-card-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
-      : '<img src="' + avatarUrl(u.first_name) + '" class="user-card-photo">';
-    var hasPhone = u.phone ? '<span class="user-tag tag-green">' + esc(u.phone) + '</span>' : '';
-    var hasAddr = u.address ? '<span class="user-tag tag-blue">' + esc(u.address.substring(0,20)) + (u.address.length>20?'…':'') + '</span>' : '';
+      ? '<img src="'+u.photo_url+'" class="user-card-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
+      : '<img src="'+avatarUrl(u.first_name)+'" class="user-card-photo">';
+    var hasPhone = u.phone ? '<span class="user-tag tag-green">'+esc(u.phone)+'</span>' : '';
     var isBlocked = parseInt(u.is_blocked) === 1;
     var blockedTag = isBlocked ? '<span class="user-tag" style="background:rgba(239,68,68,.12);color:var(--red)">⛔ Bloklangan</span>' : '';
-    return '<div class="user-card" onclick="showUserDetail(' + u.id + ')" style="' + (isBlocked ? 'opacity:.7' : '') + '">' +
+    var orderTag = u.order_count > 0 ? '<span class="user-tag tag-blue">'+u.order_count+' buyurtma</span>' : '';
+    return '<div class="user-card" onclick="showUserDetail('+u.id+')" style="'+(isBlocked?'opacity:.7':'') + '">' +
       photo +
       '<div class="user-card-info">' +
-        '<div class="user-card-name">' + esc(name) + '</div>' +
-        '<div class="user-card-meta">' + (u.username ? '@' + esc(u.username) : 'ID: ' + u.id) + '</div>' +
-        '<div class="user-card-tags">' + hasPhone + hasAddr + blockedTag + '</div>' +
+        '<div class="user-card-name">'+esc(name)+'</div>' +
+        '<div class="user-card-meta">'+(u.username ? '@'+esc(u.username) : 'ID: '+u.id)+'</div>' +
+        '<div class="user-card-tags">'+hasPhone+orderTag+blockedTag+'</div>' +
       '</div>' +
       '<svg class="user-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
     '</div>';
@@ -307,47 +375,45 @@ function renderUsers(list) {
 }
 
 function showUserDetail(userId) {
-  var u = allUsers.find(function(x) { return x.id == userId; });
+  var u = allUsers.find(function(x){ return x.id == userId; });
   if (!u) return;
-  var name = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || 'Noma\'lum';
+  var name = ((u.first_name||'')+' '+(u.last_name||'')).trim() || 'Noma\'lum';
   var photo = u.photo_url
-    ? '<img src="' + u.photo_url + '" class="umodal-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
-    : '<img src="' + avatarUrl(u.first_name) + '" class="umodal-photo">';
-
+    ? '<img src="'+u.photo_url+'" class="umodal-photo" onerror="this.src=\''+avatarUrl(u.first_name)+'\'">'
+    : '<img src="'+avatarUrl(u.first_name)+'" class="umodal-photo">';
   var isBlocked = parseInt(u.is_blocked) === 1;
   var blockBtn = isBlocked
-    ? '<button class="btn-sm" style="color:var(--green);border-color:var(--green)" onclick="unblockUser(' + u.id + ')">✓ Blokdan olish</button>'
-    : '<button class="btn-sm" style="color:var(--red);border-color:var(--red)" onclick="promptBlockUser(' + u.id + ')">⛔ Bloklash</button>';
+    ? '<button class="btn-sm" style="color:var(--green);border-color:var(--green)" onclick="unblockUser('+u.id+')">✓ Blokdan olish</button>'
+    : '<button class="btn-sm" style="color:var(--red);border-color:var(--red)" onclick="promptBlockUser('+u.id+')">⛔ Bloklash</button>';
 
   document.getElementById('userModalBody').innerHTML =
-    '<div class="umodal-header">' + photo +
-      '<div class="umodal-name">' + esc(name) + '</div>' +
-      '<div class="umodal-username">' + (u.username ? '@' + esc(u.username) : '') + '</div>' +
-      (isBlocked ? '<div style="margin-top:6px"><span class="badge badge-cancelled">Bloklangan' + (u.block_reason ? ': ' + esc(u.block_reason) : '') + '</span></div>' : '') +
-    '</div>' +
-    '<div class="umodal-rows">' +
-      uRow('Telegram ID', u.id) +
-      uRow('Ism', esc(name)) +
-      uRow('Username', u.username ? '@'+esc(u.username) : '—') +
-      uRow('Telefon', esc(u.phone || '—')) +
-      uRow('Manzil', esc(u.address || '—')) +
-      uRow('Buyurtmalar', (u.order_count || 0) + ' ta') +
-      uRow('Jami xarid', fmt(u.total_spent || 0)) +
-      uRow('Qo\'shilgan', u.created_at ? new Date(u.created_at.replace(' ','T')).toLocaleDateString('ru-RU') : '—') +
-    '</div>' +
-    '<div style="padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)">' +
-      '<a href="https://t.me/' + (u.username || '') + '" target="_blank" class="btn-primary" style="flex:1;text-align:center;text-decoration:none;' + (!u.username?'opacity:.4;pointer-events:none':'') + '">Telegram</a>' +
-      '<a href="tel:' + (u.phone||'') + '" class="btn-sm" style="' + (!u.phone?'opacity:.4;pointer-events:none':'') + '">📞</a>' +
-      '<button class="btn-sm" onclick="promptSendMessage(' + u.id + ')">✉️ Xabar</button>' +
-      blockBtn +
-    '</div>' +
-    '<div style="padding:0 20px 16px">' +
-      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;padding-top:14px;border-top:1px solid var(--border)">Buyurtmalar tarixi</div>' +
-      '<div id="userOrderHistory"><div style="text-align:center;padding:12px;color:var(--text-dim);font-size:13px">Yuklanmoqda...</div></div>' +
+    '<div class="umodal-header">'+photo+
+      '<div class="umodal-name">'+esc(name)+'</div>'+
+      '<div class="umodal-username">'+(u.username ? '@'+esc(u.username) : '')+'</div>'+
+      (isBlocked ? '<div style="margin-top:6px"><span class="badge badge-cancelled">Bloklangan'+(u.block_reason ? ': '+esc(u.block_reason) : '')+'</span></div>' : '')+
+    '</div>'+
+    '<div class="umodal-rows">'+
+      uRow('Telegram ID', u.id)+uRow('Ism', esc(name))+
+      uRow('Username', u.username ? '@'+esc(u.username) : '—')+
+      uRow('Telefon', esc(u.phone || '—'))+uRow('Manzil', esc(u.address || '—'))+
+      uRow('Buyurtmalar', (u.order_count||0)+' ta')+
+      uRow('Jami xarid', fmtFull(u.total_spent||0))+
+      uRow('Qo\'shilgan', u.created_at ? new Date(u.created_at.replace(' ','T')).toLocaleDateString('ru-RU') : '—')+
+    '</div>'+
+    '<div style="padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border)">'+
+      '<a href="https://t.me/'+(u.username||'')+'" target="_blank" class="btn-primary" style="flex:1;text-align:center;text-decoration:none;'+(!u.username?'opacity:.4;pointer-events:none':'')+'">Telegram</a>'+
+      '<a href="tel:'+(u.phone||'')+'" class="btn-sm" style="'+((!u.phone)?'opacity:.4;pointer-events:none':'')+'">📞</a>'+
+      '<button class="btn-sm" onclick="promptSendMessage('+u.id+')">✉️ Xabar</button>'+
+      blockBtn+
+    '</div>'+
+    '<div style="padding:0 20px 16px">'+
+      '<div style="font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;padding-top:14px;border-top:1px solid var(--border)">Buyurtmalar tarixi</div>'+
+      '<div id="userOrderHistory"><div style="text-align:center;padding:12px;color:var(--text-dim);font-size:13px">Yuklanmoqda...</div></div>'+
     '</div>';
+
   document.getElementById('userModal').classList.remove('hidden');
-  // Buyurtmalar tarixini yuklash
-  get(withAdmin('admin_user_orders&user_id=' + u.id)).then(function(res) {
+
+  get(withAdmin('admin_user_orders&user_id='+u.id)).then(function(res) {
     var el = document.getElementById('userOrderHistory');
     if (!el) return;
     if (!res.success || !res.data || !res.data.length) {
@@ -358,48 +424,35 @@ function showUserDetail(userId) {
     el.innerHTML = res.data.map(function(o) {
       var items = (o.items||[]).map(function(i){ return esc(i.name)+'×'+i.qty; }).join(', ');
       var date = o.created_at ? new Date(o.created_at.replace(' ','T')).toLocaleDateString('ru-RU') : '';
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">' +
-        '<div>' +
-          '<span style="font-weight:600;color:var(--accent)">#'+o.id+'</span> ' +
-          '<span class="badge badge-'+o.status+'" style="font-size:10px">'+(statusMap[o.status]||o.status)+'</span>' +
-          '<div style="color:var(--text-dim);font-size:11px;margin-top:2px">'+items+'</div>' +
-        '</div>' +
-        '<div style="text-align:right">' +
-          '<div style="font-weight:700">'+fmt(o.total)+'</div>' +
-          '<div style="font-size:11px;color:var(--text-dim)">'+date+'</div>' +
-        '</div>' +
-      '</div>';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">'+
+        '<div><span style="font-weight:600;color:var(--accent)">#'+o.id+'</span> <span class="badge badge-'+o.status+'" style="font-size:10px">'+(statusMap[o.status]||o.status)+'</span>'+
+        '<div style="color:var(--text-dim);font-size:11px;margin-top:2px">'+items+'</div></div>'+
+        '<div style="text-align:right"><div style="font-weight:700">'+fmtFull(o.total)+'</div>'+
+        '<div style="font-size:11px;color:var(--text-dim)">'+date+'</div></div></div>';
     }).join('');
   });
 }
 
 function uRow(label, val) {
-  return '<div class="umodal-row"><span class="umodal-label">' + label + '</span><span class="umodal-val">' + val + '</span></div>';
+  return '<div class="umodal-row"><span class="umodal-label">'+label+'</span><span class="umodal-val">'+val+'</span></div>';
 }
-
 function closeUserModal() { document.getElementById('userModal').classList.add('hidden'); }
 
 // ── BLOCK / UNBLOCK ──
 function promptBlockUser(userId) {
   var reason = prompt('Bloklash sababi (ixtiyoriy):');
-  if (reason === null) return; // Cancel bosildi
-  post('admin_block_user', { user_id: userId, reason: reason, admin_id: adminId }).then(function(res) {
-    if (res.success) {
-      adminToast('Foydalanuvchi bloklandi', 'success');
-      closeUserModal();
-      loadUsers();
-    } else adminToast('Xatolik yuz berdi!', 'error');
+  if (reason === null) return;
+  post('admin_block_user', { user_id: userId, reason: reason }).then(function(res) {
+    if (res.success) { adminToast('Foydalanuvchi bloklandi', 'success'); closeUserModal(); loadUsers(); }
+    else adminToast('Xatolik yuz berdi!', 'error');
   });
 }
 
 function unblockUser(userId) {
   if (!confirm('Foydalanuvchini blokdan chiqarasizmi?')) return;
-  post('admin_unblock_user', { user_id: userId, admin_id: adminId }).then(function(res) {
-    if (res.success) {
-      adminToast('Foydalanuvchi blokdan chiqarildi', 'success');
-      closeUserModal();
-      loadUsers();
-    } else adminToast('Xatolik yuz berdi!', 'error');
+  post('admin_unblock_user', { user_id: userId }).then(function(res) {
+    if (res.success) { adminToast('Foydalanuvchi blokdan chiqarildi', 'success'); closeUserModal(); loadUsers(); }
+    else adminToast('Xatolik yuz berdi!', 'error');
   });
 }
 
@@ -407,7 +460,7 @@ function unblockUser(userId) {
 function promptSendMessage(userId) {
   var msg = prompt('Foydalanuvchiga yubormoqchi bo\'lgan xabaringiz:');
   if (!msg || !msg.trim()) return;
-  post('admin_send_message', { user_id: userId, message: msg.trim(), admin_id: adminId }).then(function(res) {
+  post('admin_send_message', { user_id: userId, message: msg.trim() }).then(function(res) {
     if (res.success) adminToast('Xabar yuborildi ✓', 'success');
     else adminToast('Xabar yuborilmadi!', 'error');
   });
@@ -419,27 +472,18 @@ function handleImageUpload(input) {
   var file = input.files[0];
   var status = document.getElementById('prodImageUploadStatus');
   var preview = document.getElementById('prodImagePreview');
-
-  // Local preview
   var reader = new FileReader();
   reader.onload = function(e) {
     preview.innerHTML = '<img src="' + e.target.result + '">';
     preview.classList.add('has-img');
   };
   reader.readAsDataURL(file);
-
-  // Upload to server
   status.textContent = '⏳ Yuklanmoqda...';
   status.className = 'uploading';
-
   var formData = new FormData();
   formData.append('image', file);
-
-  fetch(UPLOAD_API, {
-    method: 'POST',
-    headers: apiHeaders(false),
-    body: formData
-  }).then(function(r) { return r.json(); })
+  fetch(UPLOAD_API, { method: 'POST', headers: apiHeaders(false), body: formData })
+    .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res.success) {
         document.getElementById('prodImage').value = res.data.url;
@@ -459,11 +503,7 @@ function handleImageUpload(input) {
 function handleImageUrl(input) {
   var url = input.value.trim();
   var preview = document.getElementById('prodImagePreview');
-  if (!url) {
-    preview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rasm tanlang</span>';
-    preview.classList.remove('has-img');
-    return;
-  }
+  if (!url) { resetImageUpload(); return; }
   var img = new Image();
   img.onload = function() {
     preview.innerHTML = '<img src="' + url + '">';
@@ -474,11 +514,9 @@ function handleImageUrl(input) {
 }
 
 function resetImageUpload() {
+  var ph = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rasm tanlang</span>';
   var preview = document.getElementById('prodImagePreview');
-  if (preview) {
-    preview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/><polyline points="21 15 16 10 5 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rasm tanlang</span>';
-    preview.classList.remove('has-img');
-  }
+  if (preview) { preview.innerHTML = ph; preview.classList.remove('has-img'); }
   var status = document.getElementById('prodImageUploadStatus');
   if (status) { status.textContent = ''; status.className = ''; }
   var fileInput = document.getElementById('prodImageFile');
@@ -491,37 +529,26 @@ function loadProducts() {
   get(withAdmin('admin_products')).then(function(res) {
     var el = document.getElementById('productsList');
     if (!res.success || !res.data || !res.data.length) { el.innerHTML = emptyState('Mahsulotlar yo\'q', iconBox()); return; }
-    // Store products for editProduct access
     window._products = res.data;
-    el.innerHTML = res.data.map(function(p, idx) {
+    el.innerHTML = res.data.map(function(p) {
       var avail = parseInt(p.available);
       var img = p.image
         ? '<img src="'+p.image+'" class="pac-img" onerror="this.style.display=\'none\'">'
         : '<div class="pac-img-placeholder">' + iconFood() + '</div>';
       return '<div class="product-admin-card">' +
-        img +
-        '<div class="pac-body">' +
-          '<div class="pac-top">' +
-            '<span class="pac-cat">' + esc(p.category_name || '') + '</span>' +
-            '<span class="pac-avail ' + (avail ? 'avail-yes' : 'avail-no') + '">' + (avail ? 'Mavjud' : 'Yo\'q') + '</span>' +
-          '</div>' +
-          '<div class="pac-name">' + esc(p.name) + '</div>' +
-          '<div class="pac-desc">' + esc(p.description || '') + '</div>' +
-          '<div class="pac-footer">' +
-            '<div class="pac-price">' + fmt(p.price) + '</div>' +
-            '<div class="pac-actions">' +
-              '<button class="btn-icon btn-edit" onclick="editProduct(' + p.id + ')">' + iconEdit() + '</button>' +
-              '<button class="btn-icon btn-delete" onclick="deleteProduct(' + p.id + ')">' + iconTrash() + '</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
+        img + '<div class="pac-body">' +
+          '<div class="pac-top"><span class="pac-cat">'+esc(p.category_name||'')+'</span>' +
+          '<span class="pac-avail '+(avail?'avail-yes':'avail-no')+'">'+(avail?'Mavjud':'Yo\'q')+'</span></div>' +
+          '<div class="pac-name">'+esc(p.name)+'</div>' +
+          '<div class="pac-desc">'+esc(p.description||'')+'</div>' +
+          '<div class="pac-footer"><div class="pac-price">'+fmtFull(p.price)+'</div>' +
+          '<div class="pac-actions">' +
+            '<button class="btn-icon btn-edit" onclick="editProduct('+p.id+')">'+iconEdit()+'</button>' +
+            '<button class="btn-icon btn-delete" onclick="deleteProduct('+p.id+')">'+iconTrash()+'</button>' +
+          '</div></div>' +
+        '</div></div>';
     }).join('');
   });
-}
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function showAddProduct() {
@@ -545,7 +572,6 @@ function editProduct(id) {
   document.getElementById('prodImage').value = p.image || '';
   document.getElementById('prodAvailable').checked = parseInt(p.available) === 1;
   document.getElementById('prodAvailGroup').style.display = 'block';
-  // Rasm preview
   resetImageUpload();
   if (p.image) {
     var prev = document.getElementById('prodImagePreview');
@@ -570,66 +596,155 @@ function closeProductModal() { document.getElementById('productModal').classList
 
 function saveProduct() {
   var id = document.getElementById('editProductId').value;
+  var priceVal = parseInt(document.getElementById('prodPrice').value) || 0;
   var data = {
     category_id: document.getElementById('prodCat').value,
     name: document.getElementById('prodName').value.trim(),
     description: document.getElementById('prodDesc').value.trim(),
-    price: parseInt(document.getElementById('prodPrice').value) || 0,
+    price: priceVal,
     image: document.getElementById('prodImage').value.trim(),
   };
-  if (!data.name || !data.price) return adminToast('Nom va narxni kiriting!');
+  if (!data.name) return adminToast('Mahsulot nomini kiriting!', 'error');
+  if (!data.price || data.price <= 0) return adminToast('To\'g\'ri narx kiriting!', 'error');
   if (id) {
     data.id = parseInt(id);
     data.available = document.getElementById('prodAvailable').checked ? 1 : 0;
-    data.admin_id = adminId;
     post('admin_edit_product', data).then(function(res) {
-      if (res.success) { adminToast('Mahsulot yangilandi'); closeProductModal(); loadProducts(); }
+      if (res.success) { adminToast('Mahsulot yangilandi ✓', 'success'); closeProductModal(); loadProducts(); }
+      else adminToast('Xatolik: ' + (res.data || ''), 'error');
     });
   } else {
-    data.admin_id = adminId;
     post('admin_add_product', data).then(function(res) {
-      if (res.success) { adminToast('Mahsulot qo\'shildi'); closeProductModal(); loadProducts(); }
+      if (res.success) { adminToast('Mahsulot qo\'shildi ✓', 'success'); closeProductModal(); loadProducts(); }
+      else adminToast('Xatolik: ' + (res.data || ''), 'error');
     });
   }
 }
 
 function deleteProduct(id) {
-  if (!confirm('Bu mahsulotni o\'chirmoqchimisiz?')) return;
-  post('admin_delete_product', { id: id, admin_id: adminId }).then(function(res) {
-    if (res.success) { adminToast('Mahsulot o\'chirildi'); loadProducts(); }
+  var p = (window._products || []).find(function(x){ return x.id == id; });
+  var name = p ? p.name : '#'+id;
+  if (!confirm('"' + name + '" ni o\'chirmoqchimisiz?')) return;
+  post('admin_delete_product', { id: id }).then(function(res) {
+    if (res.success) { adminToast('Mahsulot o\'chirildi', 'success'); loadProducts(); }
+    else adminToast('Xatolik!', 'error');
+  });
+}
+
+// ── CATEGORIES ──
+function loadCategories() {
+  get(withAdmin('admin_categories')).then(function(res) {
+    var el = document.getElementById('categoriesList');
+    if (!el) return;
+    if (!res.success || !res.data || !res.data.length) {
+      el.innerHTML = emptyState('Kategoriyalar yo\'q', iconBox());
+      return;
+    }
+    categories = res.data;
+    el.innerHTML = '<div class="cat-manage-list">' + res.data.map(function(c) {
+      return '<div class="cat-manage-row">' +
+        '<span class="cat-manage-icon">'+esc(c.icon||'🍽️')+'</span>' +
+        '<div class="cat-manage-info">' +
+          '<span class="cat-manage-name">'+esc(c.name)+'</span>' +
+          '<span class="cat-manage-order" style="color:var(--text-dim);font-size:11px">Tartib: '+c.sort_order+'</span>' +
+        '</div>' +
+        '<div class="pac-actions">' +
+          '<button class="btn-icon btn-edit" onclick="editCategory('+c.id+')">'+iconEdit()+'</button>' +
+          '<button class="btn-icon btn-delete" onclick="deleteCategory('+c.id+',\''+esc(c.name)+'\')">'+iconTrash()+'</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+  });
+}
+
+function showAddCategory() {
+  document.getElementById('catModalTitle').textContent = 'Yangi kategoriya';
+  document.getElementById('editCatId').value = '';
+  document.getElementById('catName').value = '';
+  document.getElementById('catIcon').value = '';
+  document.getElementById('catSort').value = '0';
+  document.getElementById('categoryModal').classList.remove('hidden');
+}
+
+function editCategory(id) {
+  var c = categories.find(function(x){ return x.id == id; });
+  if (!c) return;
+  document.getElementById('catModalTitle').textContent = c.name;
+  document.getElementById('editCatId').value = c.id;
+  document.getElementById('catName').value = c.name || '';
+  document.getElementById('catIcon').value = c.icon || '';
+  document.getElementById('catSort').value = c.sort_order || 0;
+  document.getElementById('categoryModal').classList.remove('hidden');
+}
+
+function closeCategoryModal() { document.getElementById('categoryModal').classList.add('hidden'); }
+
+function saveCategory() {
+  var id = document.getElementById('editCatId').value;
+  var data = {
+    name: document.getElementById('catName').value.trim(),
+    icon: document.getElementById('catIcon').value.trim() || '🍽️',
+    sort_order: parseInt(document.getElementById('catSort').value) || 0,
+  };
+  if (!data.name) return adminToast('Kategoriya nomini kiriting!', 'error');
+  if (id) {
+    data.id = parseInt(id);
+    post('admin_edit_category', data).then(function(res) {
+      if (res.success) { adminToast('Kategoriya yangilandi ✓', 'success'); closeCategoryModal(); loadCategories(); }
+      else adminToast('Xatolik: ' + (res.data || ''), 'error');
+    });
+  } else {
+    post('admin_add_category', data).then(function(res) {
+      if (res.success) { adminToast('Kategoriya qo\'shildi ✓', 'success'); closeCategoryModal(); loadCategories(); }
+      else adminToast('Xatolik: ' + (res.data || ''), 'error');
+    });
+  }
+}
+
+function deleteCategory(id, name) {
+  if (!confirm('"' + name + '" kategoriyasini o\'chirmoqchimisiz?\nUning barcha mahsulotlari bo\'lmasligi kerak.')) return;
+  post('admin_delete_category', { id: id }).then(function(res) {
+    if (res.success) { adminToast('Kategoriya o\'chirildi', 'success'); loadCategories(); }
+    else adminToast(typeof res.data === 'string' ? res.data : 'Xatolik!', 'error');
   });
 }
 
 // ── BROADCAST ──
 function sendBroadcast() {
   var msg = (document.getElementById('broadcastMsg').value || '').trim();
-  var target = document.getElementById('broadcastTarget') ? document.getElementById('broadcastTarget').value : 'all';
-  if (!msg) return adminToast('Xabar kiriting!');
+  var target = (document.getElementById('broadcastTarget') || {}).value || 'all';
+  if (!msg) return adminToast('Xabar kiriting!', 'error');
   var targetLabel = target === 'active' ? 'faol foydalanuvchilarga' : 'barcha foydalanuvchilarga';
   if (!confirm(targetLabel + ' yuborasizmi?')) return;
   var btn = document.getElementById('broadcastBtn');
   btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
-  post('admin_broadcast', { message: msg, target: target, admin_id: adminId }).then(function(res) {
+  post('admin_broadcast', { message: msg, target: target }).then(function(res) {
     btn.disabled = false;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Barchaga yuborish';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Yuborish';
     var r = document.getElementById('broadcastResult');
     r.classList.remove('hidden');
     if (res.success) {
       r.className = 'broadcast-result success';
-      r.textContent = res.data.sent + '/' + res.data.total + ' foydalanuvchiga yuborildi';
+      r.textContent = '✓ ' + res.data.sent + '/' + res.data.total + ' foydalanuvchiga yuborildi';
       document.getElementById('broadcastMsg').value = '';
+      document.getElementById('broadcastPreview').textContent = 'Matn kiriting...';
     } else {
       r.className = 'broadcast-result error';
-      r.textContent = 'Xatolik yuz berdi!';
+      r.textContent = '✗ Xatolik yuz berdi!';
     }
   });
+}
+
+// ── ESC ──
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── HELPERS ──
 function fmt(n) {
   var num = Number(n);
   if (num >= 1000000) return (num/1000000).toFixed(1).replace('.0','') + ' mln so\'m';
-  if (num >= 1000) return (num/1000).toFixed(0) + ' ming so\'m';
+  if (num >= 1000) return Math.round(num/1000) + ' ming so\'m';
   return num.toLocaleString('uz-UZ') + " so'm";
 }
 function fmtFull(n) { return Number(n).toLocaleString('uz-UZ') + " so'm"; }
@@ -640,7 +755,7 @@ function emptyState(msg, icon) { return '<div class="empty-state">' + icon + '<p
 function adminToast(msg, type) {
   var t = document.getElementById('adminToast');
   t.textContent = msg;
-  t.style.borderColor = type === 'error' ? 'rgba(239,68,68,.3)' : type === 'success' ? 'rgba(34,197,94,.3)' : '';
+  t.style.borderColor = type === 'error' ? 'rgba(239,68,68,.4)' : type === 'success' ? 'rgba(34,197,94,.4)' : '';
   t.style.setProperty('--dot', type === 'error' ? 'var(--red)' : type === 'success' ? 'var(--green)' : 'var(--accent)');
   t.classList.remove('hidden');
   clearTimeout(t._t);
@@ -650,7 +765,7 @@ function adminToast(msg, type) {
 function get(action) {
   if (!adminReady) return Promise.resolve({ success: false });
   var controller = new AbortController();
-  var timer = setTimeout(function(){ controller.abort(); }, 8000);
+  var timer = setTimeout(function(){ controller.abort(); }, 10000);
   return fetch(API + '?action=' + action, { signal: controller.signal, headers: apiHeaders(false) })
     .then(function(r) { clearTimeout(timer); return r.json(); })
     .catch(function() { clearTimeout(timer); return { success: false }; });
@@ -658,12 +773,11 @@ function get(action) {
 
 function post(action, data) {
   if (!adminReady) return Promise.resolve({ success: false });
-  if (!data.admin_id) data.admin_id = adminId;
   var controller = new AbortController();
-  var timer = setTimeout(function(){ controller.abort(); }, 8000);
+  var timer = setTimeout(function(){ controller.abort(); }, 10000);
   return fetch(API + '?action=' + action, {
     method: 'POST', headers: apiHeaders(true),
-    body: JSON.stringify(data), signal: controller.signal
+    body: JSON.stringify(data || {}), signal: controller.signal
   }).then(function(r) { clearTimeout(timer); return r.json(); })
     .catch(function() { clearTimeout(timer); return { success: false }; });
 }
