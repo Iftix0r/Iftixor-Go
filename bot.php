@@ -150,6 +150,32 @@ function getSellerProducts(int $tgId): array {
     return $s->fetchAll();
 }
 
+function saveProdFromDraft(int $chatId, array $rest, string $imageUrl): void {
+    $d = db()->prepare("SELECT * FROM seller_draft WHERE user_id=?");
+    $d->execute([$chatId]); $d = $d->fetch();
+    if (!$d || !$d['name'] || !$d['price']) {
+        sendMsg($chatId, "\xE2\x9D\x8C Xatolik, qayta boshlang.");
+        clearSellerState($chatId);
+        return;
+    }
+    $desc = $d['desc_text'] ?? '';
+    db()->prepare("INSERT INTO products (category_id, restaurant_id, name, description, price, image, available) VALUES (?,?,?,?,?,?,1)")
+        ->execute([$d['cat_id'], $rest['id'], $d['name'], $desc, $d['price'], $imageUrl]);
+    db()->prepare("DELETE FROM seller_draft WHERE user_id=?")->execute([$chatId]);
+    clearSellerState($chatId);
+    $products = getSellerProducts($chatId);
+    $rows = [];
+    foreach ($products as $p) {
+        $av = $p['available'] ? "\xE2\x9C\x85" : "\xE2\x9D\x8C";
+        $rows[] = [['text' => "{$av} {$p['name']} \xE2\x80\x94 ".number_format($p['price'])." so'm", 'callback_data' => 'prod_detail_'.$p['id']]];
+    }
+    $rows[] = [['text' => "\xE2\x9E\x95 Mahsulot qo'shish", 'callback_data' => 'prod_add_start']];
+    $rows[] = [['text' => "\xF0\x9F\x94\x99 Orqaga", 'callback_data' => 'seller_back']];
+    tg('sendMessage', ['chat_id' => $chatId,
+        'text' => "\xE2\x9C\x85 *{$d['name']}* menyuga qo'shildi!",
+        'parse_mode' => 'Markdown', 'reply_markup' => ['inline_keyboard' => $rows]]);
+}
+
 // ── STATE: sotuvchi jarayon holati ──
 function setSellerState(int $uid, string $state, int $ref = 0): void {
     db()->prepare("INSERT INTO seller_states (user_id, state, ref_id) VALUES (?,?,?) ON DUPLICATE KEY UPDATE state=VALUES(state), ref_id=VALUES(ref_id), updated_at=NOW()")
@@ -177,8 +203,13 @@ try {
         user_id BIGINT PRIMARY KEY,
         cat_id INT DEFAULT 0,
         name VARCHAR(255) DEFAULT '',
+        desc_text TEXT,
         price DECIMAL(10,2) DEFAULT 0
     )");
+    // desc_text ustuni yo'q bo'lsa qo'shish
+    try {
+        db()->exec("ALTER TABLE seller_draft ADD COLUMN desc_text TEXT");
+    } catch (Throwable $e) {}
 } catch (Throwable $e) {}
 
 function getUserRole(int $id): string {
@@ -716,6 +747,23 @@ if (isset($msg['location'])) {
     exit;
 }
 
+// ── RASM (photo) ──
+if (isset($msg['photo']) && $userRole === 'seller') {
+    $st = getSellerState($chatId);
+    if ($st['state'] === 'awaiting_prod_image') {
+        $rest = getSellerRestaurant($chatId);
+        // Eng katta o'lchamdagi rasmni olish
+        $photos = $msg['photo'];
+        $fileId = end($photos)['file_id'];
+        // Telegram file URL olish
+        $fileRes = tg('getFile', ['file_id' => $fileId]);
+        $filePath = $fileRes['result']['file_path'] ?? '';
+        $imageUrl = $filePath ? "https://api.telegram.org/file/bot".BOT_TOKEN."/".$filePath : '';
+        saveProdFromDraft($chatId, $rest, $imageUrl);
+    }
+    exit;
+}
+
 // ── MATN XABARLARI ──
 $text = trim($msg['text'] ?? '');
 
@@ -742,26 +790,15 @@ if ($userRole === 'seller' && $text && strpos($text, '/') !== 0) {
                 exit;
 
             case 'awaiting_prod_desc':
-                $desc = $text === '/skip' ? '' : $text;
-                // Draft dan olib saqlash
-                $d = db()->prepare("SELECT * FROM seller_draft WHERE user_id=?");
-                $d->execute([$chatId]); $d = $d->fetch();
-                if (!$d || !$d['name'] || !$d['price']) { sendMsg($chatId, '❌ Xatolik, qayta boshlang.'); clearSellerState($chatId); exit; }
-                db()->prepare("INSERT INTO products (category_id, restaurant_id, name, description, price, available) VALUES (?,?,?,?,?,1)")
-                    ->execute([$d['cat_id'], $rest['id'], $d['name'], $desc, $d['price']]);
-                db()->prepare("DELETE FROM seller_draft WHERE user_id=?")->execute([$chatId]);
-                clearSellerState($chatId);
-                $products = getSellerProducts($chatId);
-                $rows = [];
-                foreach ($products as $p) {
-                    $av = $p['available'] ? '✅' : '❌';
-                    $rows[] = [['text' => "{$av} {$p['name']} — ".number_format($p['price'])." so'm", 'callback_data' => 'prod_detail_'.$p['id']]];
-                }
-                $rows[] = [['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'prod_add_start']];
-                $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
-                tg('sendMessage', ['chat_id' => $chatId,
-                    'text' => "✅ *{$d['name']}* menyuga qo'shildi!\n\n🍽️ Menyu:",
-                    'parse_mode' => 'Markdown', 'reply_markup' => ['inline_keyboard' => $rows]]);
+                $desc = ($text === '/skip') ? '' : $text;
+                db()->prepare("INSERT INTO seller_draft (user_id, desc_text) VALUES (?,?) ON DUPLICATE KEY UPDATE desc_text=VALUES(desc_text)")->execute([$chatId, $desc]);
+                setSellerState($chatId, 'awaiting_prod_image', 0);
+                sendMsg($chatId, "\xF0\x9F\x96\xBC\xEF\xB8\x8F Mahsulot rasmini yuboring (yoki o'tkazib yuboring):", ['inline_keyboard' => [[['text' => "\xE2\x8F\xAD\xEF\xB8\x8F Skip", 'callback_data' => 'prod_skip_image']]]]);
+                exit;
+
+            case 'awaiting_prod_image':
+                // Matn kelsa skip deb hisoblaymiz
+                saveProdFromDraft($chatId, $rest, '');
                 exit;
 
             case 'awaiting_price':
