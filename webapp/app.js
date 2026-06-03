@@ -359,7 +359,12 @@ function changeCardQty(id, d) {
   const item = cart.find(i => i.id == id);
   if (!item) return;
   item.qty += d;
-  if (item.qty <= 0) cart = cart.filter(i => i.id != id);
+  if (item.qty <= 0) {
+    cart = cart.filter(i => i.id != id);
+    playSound('remove');
+  } else {
+    playSound(d > 0 ? 'add' : 'remove');
+  }
   saveCart();
   updateCartBadge();
   const ctrl = document.getElementById('pqc-' + id);
@@ -388,7 +393,7 @@ function openModal(p) {
   else img.style.display = 'none';
   $('productModal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
-  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+  playSound('open');
 }
 
 function closeModal(e) {
@@ -402,6 +407,7 @@ function changeModalQty(d) {
   modalQty = Math.max(1, modalQty + d);
   $('modalQty').textContent = modalQty;
   $('modalAddBtn').textContent = `Savatga qo'shish · ${fmt(modalProduct.price * modalQty)}`;
+  playSound('tap');
 }
 
 function addFromModal() {
@@ -409,7 +415,7 @@ function addFromModal() {
   addToCart(modalProduct, modalQty);
   $('productModal').classList.add('hidden');
   document.body.style.overflow = '';
-  if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  playSound('add');
   toast(`✓ ${modalProduct.name} savatga qo'shildi`);
   renderProducts(activeCat);
 }
@@ -418,7 +424,7 @@ function quickAdd(id) {
   const p = menu.reduce((acc, c) => acc.concat(c.products || []), []).find(p => p.id == id);
   if (!p) return;
   addToCart(p, 1);
-  if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+  playSound('add');
   toast(`✓ ${p.name} qo'shildi`);
   renderProducts(activeCat);
 }
@@ -436,7 +442,12 @@ function updateCartQty(id, d) {
   const item = cart.find(i => i.id == id);
   if (!item) return;
   item.qty += d;
-  if (item.qty <= 0) cart = cart.filter(i => i.id != id);
+  if (item.qty <= 0) {
+    cart = cart.filter(i => i.id != id);
+    playSound('remove');
+  } else {
+    playSound(d > 0 ? 'add' : 'remove');
+  }
   saveCart();
   renderCart();
   updateCartBadge();
@@ -447,6 +458,7 @@ function clearCart() {
   if (!confirm('Savatni tozalaysizmi?')) return;
   cart = [];
   saveCart();
+  playSound('clear');
   renderCart();
   updateCartBadge();
 }
@@ -629,13 +641,14 @@ async function submitOrder() {
   if (res.success) {
     cart = []; saveCart();
     renderCart(); updateCartBadge();
-    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    playSound('success');
     if (tg?.BackButton) tg.BackButton.hide();
     showOrderSuccess(res.data.order_id, res.data.total);
     loadOrderHistory();
     startOrderPolling(res.data.order_id);
   } else {
     const msg = typeof res.data === 'string' ? res.data : 'Xatolik yuz berdi!';
+    playSound('error');
     toast('❌ ' + msg);
     if (btn) { btn.disabled = false; btn.textContent = 'Buyurtma berish'; }
   }
@@ -739,8 +752,9 @@ async function saveProfile() {
   if (btn) { btn.disabled = false; btn.textContent = 'Saqlash'; }
   if (res.success) {
     toast('✓ Saqlandi!');
-    if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    playSound('success');
   } else {
+    playSound('error');
     toast('Xatolik yuz berdi!');
   }
 }
