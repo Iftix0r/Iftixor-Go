@@ -13,15 +13,23 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $input  = json_decode(file_get_contents('php://input'), true) ?? [];
 
 require_once 'auth.php';
+session_start();
 
 function resp($data, $success = true): void {
     echo json_encode(['success' => $success, 'data' => $data]);
     exit;
 }
 
-function requireAdmin(): void {
+function isAdminAuthorized(): bool {
+    if (!empty($_SESSION['admin_authenticated']) && $_SESSION['admin_authenticated'] === true) {
+        return true;
+    }
     $tgUser = validateInitData(getInitDataFromRequest());
-    if ($tgUser && isAdminId((int)$tgUser['id'])) return;
+    return $tgUser && isAdminId((int)$tgUser['id']);
+}
+
+function requireAdmin(): void {
+    if (isAdminAuthorized()) return;
     resp('Unauthorized', false);
 }
 
@@ -82,6 +90,24 @@ function calcTaxiPrices(float $distKm): array {
 }
 
 switch ($action) {
+    case 'admin_login':
+        $user = trim((string)($input['username'] ?? ''));
+        $pass = trim((string)($input['password'] ?? ''));
+        if ($user === 'admin' && $pass === 'admin123') {
+            $_SESSION['admin_authenticated'] = true;
+            resp('authorized');
+        }
+        resp('Invalid credentials', false);
+        break;
+
+    case 'admin_logout':
+        unset($_SESSION['admin_authenticated']);
+        resp('logged out');
+        break;
+
+    case 'admin_status':
+        resp(isAdminAuthorized() ? 'authorized' : 'unauthorized');
+        break;
 
     // ── USER ──
     case 'get_config':

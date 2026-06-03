@@ -16,17 +16,72 @@ function withAdmin(action) {
   return action;
 }
 
-function showAccessDenied(msg) {
+function showAdminGate(msg) {
   var gate = document.getElementById('adminAccessGate');
   var main = document.getElementById('mainContent');
   if (gate) {
     gate.classList.remove('hidden');
     var p = gate.querySelector('p');
-    if (p) p.textContent = msg;
+    if (p) p.textContent = msg || 'Kirish uchun login va parolni kiriting.';
   }
   if (main) main.style.display = 'none';
   var sb = document.getElementById('sidebar');
   if (sb) sb.style.display = 'none';
+}
+
+function hideAdminGate() {
+  var gate = document.getElementById('adminAccessGate');
+  var main = document.getElementById('mainContent');
+  if (gate) gate.classList.add('hidden');
+  if (main) main.style.display = '';
+  var sb = document.getElementById('sidebar');
+  if (sb) sb.style.display = '';
+}
+
+function fetchApi(action, data) {
+  var controller = new AbortController();
+  var timer = setTimeout(function(){ controller.abort(); }, 10000);
+  var url = API + '?action=' + action;
+  var opts = {
+    method: data ? 'POST' : 'GET',
+    headers: apiHeaders(!!data),
+    signal: controller.signal,
+  };
+  if (data) opts.body = JSON.stringify(data);
+  return fetch(url, opts)
+    .then(function(r) { clearTimeout(timer); return r.json(); })
+    .catch(function() { clearTimeout(timer); return { success: false }; });
+}
+
+function loginAdmin() {
+  var user = (document.getElementById('adminLoginUsername') || {}).value || '';
+  var pass = (document.getElementById('adminLoginPassword') || {}).value || '';
+  if (!user || !pass) return adminToast('Foydalanuvchi nomi va parolni kiriting', 'error');
+  var btn = document.getElementById('adminLoginBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Tekshirilmoqda...'; }
+  fetchApi('admin_login', { username: user, password: pass }).then(function(res) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Kirish'; }
+    if (res.success) {
+      adminReady = true;
+      hideAdminGate();
+      loadDashboard();
+      return;
+    }
+    showAdminGate('Noto‘g‘ri foydalanuvchi nomi yoki parol.');
+  });
+}
+
+function checkAdminStatus() {
+  fetchApi('admin_status').then(function(res) {
+    if (res.success && res.data === 'authorized') {
+      adminReady = true;
+      hideAdminGate();
+      loadDashboard();
+      return;
+    }
+    adminReady = false;
+    showAdminGate();
+  });
 }
 
 function initAdmin() {
@@ -43,10 +98,7 @@ function initAdmin() {
       }
     }
   }
-  // Telegram orqali kelmagan bo'lsa ham kirish mumkin
-  // API da admin tekshiruvi initData orqali bo'ladi
-  adminReady = true;
-  loadDashboard();
+  checkAdminStatus();
 }
 
 // ── INIT ──
@@ -109,7 +161,7 @@ function loadDashboard() {
     }
     if (!res.success) {
       if (res.data === 'Unauthorized') {
-        showAccessDenied('Sizga admin huquqi berilmagan. Iltimos, ma\'mur bilan bog\'laning.');
+        showAdminGate('Sizga admin huquqi berilmagan. Iltimos, ma\'mur bilan bog\'laning.');
       }
       return;
     }
@@ -779,22 +831,12 @@ function adminToast(msg, type) {
 
 function get(action) {
   if (!adminReady) return Promise.resolve({ success: false });
-  var controller = new AbortController();
-  var timer = setTimeout(function(){ controller.abort(); }, 10000);
-  return fetch(API + '?action=' + action, { signal: controller.signal, headers: apiHeaders(false) })
-    .then(function(r) { clearTimeout(timer); return r.json(); })
-    .catch(function() { clearTimeout(timer); return { success: false }; });
+  return fetchApi(action, null);
 }
 
 function post(action, data) {
   if (!adminReady) return Promise.resolve({ success: false });
-  var controller = new AbortController();
-  var timer = setTimeout(function(){ controller.abort(); }, 10000);
-  return fetch(API + '?action=' + action, {
-    method: 'POST', headers: apiHeaders(true),
-    body: JSON.stringify(data || {}), signal: controller.signal
-  }).then(function(r) { clearTimeout(timer); return r.json(); })
-    .catch(function() { clearTimeout(timer); return { success: false }; });
+  return fetchApi(action, data);
 }
 
 // ── SVG ICONS ──

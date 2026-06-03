@@ -11,9 +11,14 @@
 <div id="adminAccessGate" class="admin-access-gate hidden">
   <div class="admin-access-box">
     <div class="admin-access-icon">🔒</div>
-    <h2>Kirishga ruxsat yo'q</h2>
-    <p>Admin panelga faqat ruxsatli foydalanuvchilar kirishi mumkin.</p>
-    <a href="https://t.me/Iftix0r" class="btn-primary" style="display:inline-block;margin-top:16px;text-decoration:none">@Iftix0r</a>
+    <h2>Admin kirish</h2>
+    <p>Kirish uchun login va parolni kiriting.</p>
+    <div class="admin-login-form">
+      <input id="adminLoginUsername" type="text" placeholder="Foydalanuvchi" autocomplete="username">
+      <input id="adminLoginPassword" type="password" placeholder="Parol" autocomplete="current-password">
+      <button id="adminLoginBtn" class="btn-primary" onclick="loginAdmin()">Kirish</button>
+    </div>
+    <p style="margin-top:16px;font-size:13px;color:#aaa;">Agar muammo bo'lsa, administrator bilan bog'laning.</p>
   </div>
 </div>
 
