@@ -374,11 +374,25 @@ function goCheckout() {
     return;
   }
 
-  // Profil ma'lumotlarini auto to'ldirish
-  const ph = $('profilePhone'), ad = $('profileAddress');
-  $('checkoutPhone').value = ph?.value || '';
-  $('checkoutAddress').value = ad?.value || '';
-  $('checkoutNote').value = '';
+  // Profil ma'lumotlarini auto to'ldirish (DB dan yuklangan)
+  const savedPhone   = $('profilePhone')?.value?.trim() || '';
+  const savedAddress = $('profileAddress')?.value?.trim() || '';
+  $('checkoutPhone').value   = savedPhone;
+  $('checkoutAddress').value = savedAddress;
+  $('checkoutNote').value    = '';
+
+  // Telefon yo'q bo'lsa hint ko'rsat
+  if (!savedPhone) {
+    const phoneRow = $('checkoutPhone').closest('.input-row') || $('checkoutPhone').parentElement;
+    if (phoneRow) {
+      const hint = document.createElement('div');
+      hint.className = 'phone-hint';
+      hint.textContent = '💡 Botda "📱 Telefon raqamimni yuborish" bosib saqlang';
+      if (!document.querySelector('.phone-hint')) {
+        phoneRow.insertAdjacentElement('afterend', hint);
+      }
+    }
+  }
 
   const sub = cartTotal();
   $('orderSummaryItems').innerHTML = `
@@ -404,16 +418,35 @@ function goCheckout() {
 
 // Telegram contact so'rash
 function requestPhone() {
-  if (tg && tg.requestContact) {
-    tg.requestContact(res => {
-      if (res && res.contact) {
-        const phone = res.contact.phone_number || '';
-        const pInput = $('checkoutPhone');
-        if (pInput && phone) pInput.value = phone.startsWith('+') ? phone : '+' + phone;
+  // Profil sahifasida saqlangan telefon bormi?
+  const profilePhone = $('profilePhone')?.value?.trim();
+  if (profilePhone) {
+    const pInput = $('checkoutPhone');
+    if (pInput) {
+      pInput.value = profilePhone;
+      pInput.style.borderColor = 'var(--green)';
+      setTimeout(() => { pInput.style.borderColor = ''; }, 1500);
+      toast('✓ Telefon raqam to\'ldirildi');
+    }
+    return;
+  }
+
+  // Profilda telefon yo'q — botga yo'naltirish
+  if (tg) {
+    tg.showPopup({
+      title: 'Telefon raqam kerak',
+      message: 'Telegram botga o\'tib, "📱 Telefon raqamimni yuborish" tugmasini bosing. Keyin qaytib keling.',
+      buttons: [
+        { id: 'open_bot', type: 'default', text: 'Botga o\'tish' },
+        { id: 'cancel', type: 'cancel' }
+      ]
+    }, (btnId) => {
+      if (btnId === 'open_bot') {
+        tg.openTelegramLink('https://t.me/' + (tg.initDataUnsafe?.bot?.username || 'IftixorGoBot'));
       }
     });
   } else {
-    toast('Telefon raqamni qo\'lda kiriting');
+    toast('Telefon raqamingizni qo\'lda kiriting');
   }
 }
 

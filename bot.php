@@ -72,6 +72,34 @@ $chatId = $msg['chat']['id'];
 $text = trim($msg['text'] ?? '');
 $from = $msg['from'];
 
+// ── KONTAKT xabari: telefon raqamni saqlash ──
+if (isset($msg['contact'])) {
+    $contact = $msg['contact'];
+    // Faqat o'z kontaktini yuborsa (boshqa odamnikini emas)
+    if ((int)($contact['user_id'] ?? 0) === (int)$chatId) {
+        $rawPhone = preg_replace('/[^\d+]/', '', $contact['phone_number'] ?? '');
+        if ($rawPhone && !str_starts_with($rawPhone, '+')) {
+            $rawPhone = '+' . $rawPhone;
+        }
+        if ($rawPhone) {
+            db()->prepare("UPDATE users SET phone=? WHERE id=?")->execute([$rawPhone, $chatId]);
+            tg('sendMessage', [
+                'chat_id' => $chatId,
+                'text' => "✅ Telefon raqamingiz saqlandi: *{$rawPhone}*\n\nEndi buyurtma berishingiz mumkin 👇",
+                'parse_mode' => 'Markdown',
+                'reply_markup' => [
+                    'inline_keyboard' => [[
+                        ['text' => '🛒 Buyurtma berish', 'web_app' => ['url' => WEBAPP_URL]]
+                    ]]
+                ]
+            ]);
+        }
+    } else {
+        tg('sendMessage', ['chat_id' => $chatId, 'text' => "❌ Iltimos, o'z raqamingizni yuboring."]);
+    }
+    exit;
+}
+
 // Save/update user
 db()->prepare("INSERT INTO users (id, username, first_name, last_name, language_code)
     VALUES (:id, :un, :fn, :ln, :lc)
@@ -87,9 +115,27 @@ db()->prepare("INSERT INTO users (id, username, first_name, last_name, language_
 $firstName = $from['first_name'] ?? 'Foydalanuvchi';
 
 if ($text === '/start') {
+    // Foydalanuvchi telefoni DB da bormi?
+    $userRow = db()->prepare("SELECT phone FROM users WHERE id=?");
+    $userRow->execute([$chatId]);
+    $existingUser = $userRow->fetch();
+    $hasPhone = !empty($existingUser['phone']);
+
     $welcome = "👋 Assalomu alaykum, *$firstName*!\n\n"
              . "🍽️ *Iftixor Go* — tez va qulay ovqat buyurtmasi\n\n"
              . "Quyidagi tugmani bosib buyurtma bering 👇";
+
+    // Keyboard — telefon yo'q bo'lsa "Telefon yuborish" tugmasi ko'rinadi
+    $keyboard = $hasPhone
+        ? [
+            [['text' => '📋 Buyurtmalarim'], ['text' => '👤 Profil']],
+            [['text' => '📞 Bog\'lanish'], ['text' => 'ℹ️ Haqida']],
+          ]
+        : [
+            [['text' => '📱 Telefon raqamimni yuborish', 'request_contact' => true]],
+            [['text' => '📋 Buyurtmalarim'], ['text' => '👤 Profil']],
+            [['text' => '📞 Bog\'lanish'], ['text' => 'ℹ️ Haqida']],
+          ];
 
     tg('sendMessage', [
         'chat_id' => $chatId,
@@ -99,10 +145,7 @@ if ($text === '/start') {
             'inline_keyboard' => [
                 [['text' => '🛒 Buyurtma berish', 'web_app' => ['url' => WEBAPP_URL]]],
             ],
-            'keyboard' => [
-                [['text' => '📋 Buyurtmalarim'], ['text' => '👤 Profil']],
-                [['text' => '📞 Bog\'lanish'], ['text' => 'ℹ️ Haqida']],
-            ],
+            'keyboard' => $keyboard,
             'resize_keyboard' => true,
         ]
     ]);
