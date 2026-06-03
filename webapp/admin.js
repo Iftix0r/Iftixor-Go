@@ -43,10 +43,8 @@ function initAdmin() {
       }
     }
   }
-  if (!adminId) {
-    showAccessDenied('Admin panel faqat Telegram bot orqali ochiladi.');
-    return;
-  }
+  // Telegram orqali kelmagan bo'lsa ham kirish mumkin
+  // API da admin tekshiruvi initData orqali bo'ladi
   adminReady = true;
   loadDashboard();
 }
