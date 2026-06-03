@@ -476,6 +476,10 @@ function renderProducts(catId) {
     ? menu.reduce((acc, c) => acc.concat(c.products || []), [])
     : (menu.find(c => c.id == catId)?.products || []);
   
+  if (catId === 0) {
+    all.sort((a, b) => (b.order_count || 0) - (a.order_count || 0));
+  }
+  
   if (activeRestaurant) {
     all = all.filter(p => p.restaurant_id == activeRestaurant);
   }
@@ -533,6 +537,13 @@ function makeProductCard(p) {
       setRestaurantFilter(p.restaurant_id, p.restaurant_name);
     };
     body.appendChild(rest);
+  }
+
+  if (p.order_count && p.order_count > 0) {
+    const counts = document.createElement('div');
+    counts.className = 'product-order-count';
+    counts.innerHTML = '🔥 ' + p.order_count + ' marta buyurtma qilingan';
+    body.appendChild(counts);
   }
 
   if (p.description) {
@@ -621,6 +632,9 @@ function openModal(p) {
   let descText = p.description || '';
   if (p.restaurant_name) {
     descText = '🏪 ' + p.restaurant_name + (descText ? '\n\n' + descText : '');
+  }
+  if (p.order_count && p.order_count > 0) {
+    descText = '🔥 ' + p.order_count + ' marta buyurtma qilingan\n' + descText;
   }
   $('modalDesc').textContent = descText;
   

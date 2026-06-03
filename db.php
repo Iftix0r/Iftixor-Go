@@ -56,6 +56,7 @@ function initDB(): void {
             price DECIMAL(10,2) NOT NULL,
             image VARCHAR(500),
             available TINYINT(1) DEFAULT 1,
+            order_count INT DEFAULT 0,
             FOREIGN KEY (category_id) REFERENCES categories(id)
         );
 
@@ -151,6 +152,13 @@ try {
     $pcols = db()->query("SHOW COLUMNS FROM products LIKE 'restaurant_id'")->fetchAll();
     if (empty($pcols)) {
         db()->exec("ALTER TABLE products ADD COLUMN restaurant_id INT DEFAULT NULL");
+    }
+} catch (Exception $e) { /* ignore */ }
+
+try {
+    $pcols2 = db()->query("SHOW COLUMNS FROM products LIKE 'order_count'")->fetchAll();
+    if (empty($pcols2)) {
+        db()->exec("ALTER TABLE products ADD COLUMN order_count INT DEFAULT 0");
     }
 } catch (Exception $e) { /* ignore */ }
 

@@ -161,7 +161,7 @@ switch ($action) {
     // ── MENU ──
     case 'get_menu':
         $cats  = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
-        $prods = db()->query("SELECT p.*, r.name as restaurant_name FROM products p LEFT JOIN restaurants r ON p.restaurant_id=r.id WHERE p.available=1 ORDER BY p.category_id")->fetchAll();
+        $prods = db()->query("SELECT p.*, r.name as restaurant_name FROM products p LEFT JOIN restaurants r ON p.restaurant_id=r.id WHERE p.available=1 ORDER BY p.order_count DESC, p.category_id")->fetchAll();
         $menu = [];
         foreach ($cats as $c) {
             $c['products'] = array_values(array_filter($prods, fn($p) => $p['category_id'] == $c['id']));
@@ -220,6 +220,11 @@ switch ($action) {
             $stmt = db()->prepare("INSERT INTO orders (user_id, items, total, address, phone, note) VALUES (?,?,?,?,?,?)");
             $stmt->execute([$userId, json_encode($items, JSON_UNESCAPED_UNICODE), $total, $address, $phone, $note]);
             $orderId = db()->lastInsertId();
+
+            // Ommaboplik uchun buyurtma sonini oshirish
+            foreach ($items as $item) {
+                db()->prepare("UPDATE products SET order_count = order_count + 1 WHERE id=?")->execute([$item['id']]);
+            }
 
             $u = db()->prepare("SELECT * FROM users WHERE id=?");
             $u->execute([$userId]);
