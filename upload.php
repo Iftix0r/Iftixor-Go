@@ -6,9 +6,12 @@ header('Access-Control-Allow-Headers: Content-Type, X-Telegram-Init-Data');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 
 require_once 'auth.php';
+session_start();
 
 $tgUser = validateInitData($_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '');
-if (!$tgUser || !isAdminId((int)$tgUser['id'])) {
+$isSessionAdmin = (!empty($_SESSION['admin_authenticated']) && $_SESSION['admin_authenticated'] === true);
+
+if (!$isSessionAdmin && (!$tgUser || !isAdminId((int)$tgUser['id']))) {
     http_response_code(401);
     echo json_encode(['success' => false, 'data' => 'Unauthorized']);
     exit;
