@@ -38,9 +38,19 @@ function initDB(): void {
             sort_order INT DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS restaurants (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            address TEXT,
+            phone VARCHAR(50),
+            is_active TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS products (
             id INT AUTO_INCREMENT PRIMARY KEY,
             category_id INT,
+            restaurant_id INT DEFAULT NULL,
             name VARCHAR(255) NOT NULL,
             description TEXT,
             price DECIMAL(10,2) NOT NULL,
@@ -121,6 +131,13 @@ try {
     if (empty($cols)) {
         db()->exec("ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) DEFAULT 0");
         db()->exec("ALTER TABLE users ADD COLUMN block_reason VARCHAR(255)");
+    }
+} catch (Exception $e) { /* ignore */ }
+
+try {
+    $pcols = db()->query("SHOW COLUMNS FROM products LIKE 'restaurant_id'")->fetchAll();
+    if (empty($pcols)) {
+        db()->exec("ALTER TABLE products ADD COLUMN restaurant_id INT DEFAULT NULL");
     }
 } catch (Exception $e) { /* ignore */ }
 

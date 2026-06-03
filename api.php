@@ -36,7 +36,8 @@ function requireAdmin(): void {
 $adminActions = ['admin_stats','admin_orders','admin_users','admin_user_orders',
     'admin_block_user','admin_unblock_user','admin_delete_user','admin_send_message',
     'admin_update_order','admin_broadcast','admin_add_product','admin_edit_product',
-    'admin_delete_product','admin_categories','admin_products'];
+    'admin_delete_product','admin_categories','admin_products',
+    'admin_restaurants', 'admin_add_restaurant', 'admin_edit_restaurant', 'admin_delete_restaurant'];
 if (in_array($action, $adminActions, true)) {
     requireAdmin();
 }
@@ -408,9 +409,10 @@ switch ($action) {
         break;
 
     case 'admin_add_product':
-        $data = [$input['category_id']??0, $input['name']??'', $input['description']??'', $input['price']??0, $input['image']??''];
-        if (!$data[0] || !$data[1] || !$data[3]) resp('Missing data', false);
-        $s = db()->prepare("INSERT INTO products (category_id, name, description, price, image, available) VALUES (?,?,?,?,?,1)");
+        $rid = !empty($input['restaurant_id']) ? (int)$input['restaurant_id'] : null;
+        $data = [$input['category_id']??0, $rid, $input['name']??'', $input['description']??'', $input['price']??0, $input['image']??''];
+        if (!$data[0] || !$data[2] || !$data[4]) resp('Missing data', false);
+        $s = db()->prepare("INSERT INTO products (category_id, restaurant_id, name, description, price, image, available) VALUES (?,?,?,?,?,?,1)");
         $s->execute($data);
         resp(['id' => db()->lastInsertId()]);
         break;
@@ -418,8 +420,9 @@ switch ($action) {
     case 'admin_edit_product':
         $id = $input['id'] ?? 0;
         if (!$id) resp('Missing id', false);
-        db()->prepare("UPDATE products SET name=?, description=?, price=?, image=?, available=?, category_id=? WHERE id=?")
-            ->execute([$input['name']??'', $input['description']??'', $input['price']??0, $input['image']??'', $input['available']??1, $input['category_id']??0, $id]);
+        $rid = !empty($input['restaurant_id']) ? (int)$input['restaurant_id'] : null;
+        db()->prepare("UPDATE products SET name=?, description=?, price=?, image=?, available=?, category_id=?, restaurant_id=? WHERE id=?")
+            ->execute([$input['name']??'', $input['description']??'', $input['price']??0, $input['image']??'', $input['available']??1, $input['category_id']??0, $rid, $id]);
         resp('updated');
         break;
 
@@ -478,8 +481,45 @@ switch ($action) {
         resp($rows);
         break;
 
+    case 'admin_restaurants':
+        resp(db()->query("SELECT * FROM restaurants ORDER BY id DESC")->fetchAll());
+        break;
+
+    case 'admin_add_restaurant':
+        $name = trim($input['name'] ?? '');
+        $address = trim($input['address'] ?? '');
+        $phone = trim($input['phone'] ?? '');
+        if (!$name) resp('Missing name', false);
+        $s = db()->prepare("INSERT INTO restaurants (name, address, phone, is_active) VALUES (?,?,?,1)");
+        $s->execute([$name, $address, $phone]);
+        resp(['id' => db()->lastInsertId()]);
+        break;
+
+    case 'admin_edit_restaurant':
+        $id = $input['id'] ?? 0;
+        $name = trim($input['name'] ?? '');
+        $address = trim($input['address'] ?? '');
+        $phone = trim($input['phone'] ?? '');
+        $is_active = isset($input['is_active']) ? (int)$input['is_active'] : 1;
+        if (!$id || !$name) resp('Missing data', false);
+        db()->prepare("UPDATE restaurants SET name=?, address=?, phone=?, is_active=? WHERE id=?")
+            ->execute([$name, $address, $phone, $is_active, $id]);
+        resp('updated');
+        break;
+
+    case 'admin_delete_restaurant':
+        $id = $input['id'] ?? 0;
+        if (!$id) resp('Missing id', false);
+        // Check if has products
+        $cnt = db()->prepare("SELECT COUNT(*) FROM products WHERE restaurant_id=?");
+        $cnt->execute([$id]);
+        if ($cnt->fetchColumn() > 0) resp("Bu restoranda mahsulotlar bor, avval ularni o'chiring yoki o'zgartiring", false);
+        db()->prepare("DELETE FROM restaurants WHERE id=?")->execute([$id]);
+        resp('deleted');
+        break;
+
     case 'admin_products':
-        resp(db()->query("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id=c.id ORDER BY p.category_id, p.id")->fetchAll());
+        resp(db()->query("SELECT p.*, c.name as category_name, r.name as restaurant_name FROM products p LEFT JOIN categories c ON p.category_id=c.id LEFT JOIN restaurants r ON p.restaurant_id=r.id ORDER BY p.category_id, p.id")->fetchAll());
         break;
 
 // ══════════ TAXI ══════════

@@ -60,6 +60,10 @@
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h10M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       Kategoriyalar
     </a>
+    <a class="nav-link" onclick="switchTab('restaurants')" id="tab-restaurants">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M3 21h18M5 21V7l8-4 8 4v14M9 21v-4h6v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Restoranlar
+    </a>
 
     <div class="nav-section">Taxi</div>
     <a class="nav-link" onclick="switchTab('taxi')" id="tab-taxi">
@@ -282,6 +286,18 @@
     <div class="card"><div id="categoriesList"><div class="empty-state" style="padding:40px"><p>Yuklanmoqda...</p></div></div></div>
   </section>
 
+  <!-- RESTAURANTS -->
+  <section class="tab-content" id="content-restaurants">
+    <div class="page-header">
+      <div><h1>Restoranlar</h1></div>
+      <button class="btn-primary" onclick="showAddRestaurant()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        Yangi restoran
+      </button>
+    </div>
+    <div class="card"><div id="restaurantsList"><div class="empty-state" style="padding:40px"><p>Yuklanmoqda...</p></div></div></div>
+  </section>
+
   <!-- TAXI -->
   <section class="tab-content" id="content-taxi">
     <div class="page-header">
@@ -392,6 +408,12 @@
         <select id="prodCat"></select>
       </div>
       <div class="form-group">
+        <label>Restoran</label>
+        <select id="prodRestaurant">
+          <option value="">(Tanlanmagan)</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Nomi</label>
         <input type="text" id="prodName" placeholder="Masalan: Osh">
       </div>
@@ -432,6 +454,43 @@
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeProductModal()">Bekor</button>
       <button class="btn-primary" onclick="saveProduct()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restaurant Modal -->
+<div class="modal hidden" id="restaurantModal">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-header">
+      <h3 id="restModalTitle">Yangi restoran</h3>
+      <button class="modal-close" onclick="closeRestaurantModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editRestId">
+      <div class="form-group">
+        <label>Nomi</label>
+        <input type="text" id="restName" placeholder="Masalan: Evos">
+      </div>
+      <div class="form-group">
+        <label>Manzil (ixtiyoriy)</label>
+        <input type="text" id="restAddress" placeholder="Masalan: Chilonzor, 1-kv">
+      </div>
+      <div class="form-group">
+        <label>Telefon (ixtiyoriy)</label>
+        <input type="text" id="restPhone" placeholder="+998901234567">
+      </div>
+      <div class="form-group" id="restAvailGroup" style="display:none">
+        <label class="checkbox-label">
+          <input type="checkbox" id="restActive" checked>
+          <span>Faol</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeRestaurantModal()">Bekor</button>
+      <button class="btn-primary" onclick="saveRestaurant()">Saqlash</button>
     </div>
   </div>
 </div>
