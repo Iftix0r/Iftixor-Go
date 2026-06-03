@@ -518,6 +518,13 @@ function makeProductCard(p) {
   nameEl.textContent = p.name || '';
   body.appendChild(nameEl);
 
+  if (p.restaurant_name) {
+    const rest = document.createElement('div');
+    rest.className = 'product-restaurant';
+    rest.innerHTML = '🏪 ' + esc(p.restaurant_name);
+    body.appendChild(rest);
+  }
+
   if (p.description) {
     const desc = document.createElement('div');
     desc.className = 'product-desc';
@@ -600,7 +607,13 @@ function changeCardQty(id, d) {
 function openModal(p) {
   modalProduct = p; modalQty = 1;
   $('modalName').textContent = p.name;
-  $('modalDesc').textContent = p.description || '';
+  
+  let descText = p.description || '';
+  if (p.restaurant_name) {
+    descText = '🏪 ' + p.restaurant_name + (descText ? '\n\n' + descText : '');
+  }
+  $('modalDesc').textContent = descText;
+  
   $('modalPrice').textContent = fmt(p.price);
   $('modalQty').textContent = '1';
   $('modalAddBtn').textContent = `Savatga qo'shish · ${fmt(p.price)}`;

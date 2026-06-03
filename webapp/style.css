@@ -534,6 +534,11 @@ body {
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   flex: 1;
 }
+.product-restaurant {
+  font-size: 10px; color: var(--subtext);
+  margin-top: 2px; padding: 2px 0;
+  display: flex; align-items: center; gap: 3px;
+}
 .product-row {
   display: flex; align-items: center;
   justify-content: space-between;
