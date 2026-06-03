@@ -4,6 +4,7 @@ var tg = window.Telegram ? window.Telegram.WebApp : null;
 var adminId = 0;
 var adminReady = false;
 var categories = [];
+var restaurants = [];
 var allUsers = [];
 
 function apiHeaders(json) {
@@ -136,6 +137,7 @@ function switchTab(name) {
   else if (name === 'users') loadUsers();
   else if (name === 'products') loadProducts();
   else if (name === 'categories') loadCategories();
+  else if (name === 'restaurants') loadRestaurants();
   else if (name === 'taxi') loadTaxiRides();
   // Mobil sidebar yopish
   var sb = document.getElementById('sidebar');
@@ -687,6 +689,7 @@ function resetImageUpload() {
 // ── PRODUCTS ──
 function loadProducts() {
   get(withAdmin('admin_categories')).then(function(res) { if (res.success && res.data) categories = res.data; });
+  get(withAdmin('admin_restaurants')).then(function(res) { if (res.success && res.data) restaurants = res.data; });
   get(withAdmin('admin_products')).then(function(res) {
     var el = document.getElementById('productsList');
     if (!res.success || !res.data || !res.data.length) { el.innerHTML = emptyState('Mahsulotlar yo\'q', iconBox()); return; }
@@ -701,6 +704,7 @@ function loadProducts() {
           '<div class="pac-top"><span class="pac-cat">'+esc(p.category_name||'')+'</span>' +
           '<span class="pac-avail '+(avail?'avail-yes':'avail-no')+'">'+(avail?'Mavjud':'Yo\'q')+'</span></div>' +
           '<div class="pac-name">'+esc(p.name)+'</div>' +
+          (p.restaurant_name ? '<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">🏪 '+esc(p.restaurant_name)+'</div>' : '') +
           '<div class="pac-desc">'+esc(p.description||'')+'</div>' +
           '<div class="pac-footer"><div class="pac-price">'+fmtFull(p.price)+'</div>' +
           '<div class="pac-actions">' +
@@ -719,6 +723,7 @@ function showAddProduct() {
   document.getElementById('prodAvailGroup').style.display = 'none';
   resetImageUpload();
   fillCatSelect();
+  fillRestSelect();
   document.getElementById('productModal').classList.remove('hidden');
 }
 
@@ -739,6 +744,7 @@ function editProduct(id) {
     if (prev) { prev.innerHTML = '<img src="' + p.image + '">'; prev.classList.add('has-img'); }
   }
   fillCatSelect(p.category_id);
+  fillRestSelect(p.restaurant_id);
   document.getElementById('productModal').classList.remove('hidden');
 }
 
@@ -753,6 +759,18 @@ function fillCatSelect(selectedId) {
   });
 }
 
+function fillRestSelect(selectedId) {
+  var sel = document.getElementById('prodRestaurant');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">(Tanlanmagan)</option>';
+  restaurants.forEach(function(r) {
+    var o = document.createElement('option');
+    o.value = r.id; o.textContent = r.name;
+    if (selectedId && r.id == selectedId) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
 function closeProductModal() { document.getElementById('productModal').classList.add('hidden'); }
 
 function saveProduct() {
@@ -760,6 +778,7 @@ function saveProduct() {
   var priceVal = parseInt(document.getElementById('prodPrice').value) || 0;
   var data = {
     category_id: document.getElementById('prodCat').value,
+    restaurant_id: document.getElementById('prodRestaurant') ? document.getElementById('prodRestaurant').value : null,
     name: document.getElementById('prodName').value.trim(),
     description: document.getElementById('prodDesc').value.trim(),
     price: priceVal,
@@ -866,6 +885,88 @@ function deleteCategory(id, name) {
   if (!confirm('"' + name + '" kategoriyasini o\'chirmoqchimisiz?\nUning barcha mahsulotlari bo\'lmasligi kerak.')) return;
   post('admin_delete_category', { id: id }).then(function(res) {
     if (res.success) { adminToast('Kategoriya o\'chirildi', 'success'); loadCategories(); }
+    else adminToast(typeof res.data === 'string' ? res.data : 'Xatolik!', 'error');
+  });
+}
+// ── RESTAURANTS ──
+function loadRestaurants() {
+  get(withAdmin('admin_restaurants')).then(function(res) {
+    var el = document.getElementById('restaurantsList');
+    if (!el) return;
+    if (!res.success || !res.data || !res.data.length) {
+      el.innerHTML = emptyState('Restoranlar yo\'q', iconBox());
+      return;
+    }
+    restaurants = res.data;
+    el.innerHTML = '<div class="cat-manage-list">' + res.data.map(function(r) {
+      var active = parseInt(r.is_active) === 1;
+      return '<div class="cat-manage-row">' +
+        '<span class="cat-manage-icon">🏪</span>' +
+        '<div class="cat-manage-info">' +
+          '<span class="cat-manage-name">'+esc(r.name)+' <span class="badge badge-'+(active?'success':'cancelled')+'" style="font-size:9px;padding:1px 5px">'+(active?'Faol':'O\'chiq')+'</span></span>' +
+          '<span class="cat-manage-order" style="color:var(--text-dim);font-size:11px">'+esc(r.address||'Manzil yo\'q')+' · '+esc(r.phone||'Telefon yo\'q')+'</span>' +
+        '</div>' +
+        '<div class="pac-actions">' +
+          '<button class="btn-icon btn-edit" onclick="editRestaurant('+r.id+')">'+iconEdit()+'</button>' +
+          '<button class="btn-icon btn-delete" onclick="deleteRestaurant('+r.id+',\''+esc(r.name)+'\')">'+iconTrash()+'</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+  });
+}
+
+function showAddRestaurant() {
+  document.getElementById('restModalTitle').textContent = 'Yangi restoran';
+  document.getElementById('editRestId').value = '';
+  document.getElementById('restName').value = '';
+  document.getElementById('restAddress').value = '';
+  document.getElementById('restPhone').value = '';
+  document.getElementById('restAvailGroup').style.display = 'none';
+  document.getElementById('restaurantModal').classList.remove('hidden');
+}
+
+function editRestaurant(id) {
+  var r = restaurants.find(function(x){ return x.id == id; });
+  if (!r) return;
+  document.getElementById('restModalTitle').textContent = r.name;
+  document.getElementById('editRestId').value = r.id;
+  document.getElementById('restName').value = r.name || '';
+  document.getElementById('restAddress').value = r.address || '';
+  document.getElementById('restPhone').value = r.phone || '';
+  document.getElementById('restActive').checked = parseInt(r.is_active) === 1;
+  document.getElementById('restAvailGroup').style.display = 'block';
+  document.getElementById('restaurantModal').classList.remove('hidden');
+}
+
+function closeRestaurantModal() { document.getElementById('restaurantModal').classList.add('hidden'); }
+
+function saveRestaurant() {
+  var id = document.getElementById('editRestId').value;
+  var data = {
+    name: document.getElementById('restName').value.trim(),
+    address: document.getElementById('restAddress').value.trim(),
+    phone: document.getElementById('restPhone').value.trim(),
+  };
+  if (!data.name) return adminToast('Restoran nomini kiriting!', 'error');
+  if (id) {
+    data.id = parseInt(id);
+    data.is_active = document.getElementById('restActive').checked ? 1 : 0;
+    post('admin_edit_restaurant', data).then(function(res) {
+      if (res.success) { adminToast('Restoran yangilandi ✓', 'success'); closeRestaurantModal(); loadRestaurants(); }
+      else adminToast('Xatolik: ' + (res.data || ''), 'error');
+    });
+  } else {
+    post('admin_add_restaurant', data).then(function(res) {
+      if (res.success) { adminToast('Restoran qo\'shildi ✓', 'success'); closeRestaurantModal(); loadRestaurants(); }
+      else adminToast('Xatolik: ' + (res.data || ''), 'error');
+    });
+  }
+}
+
+function deleteRestaurant(id, name) {
+  if (!confirm('"' + name + '" restoranini o\'chirmoqchimisiz?\nUnga tegishli mahsulotlar bo\'lmasligi kerak.')) return;
+  post('admin_delete_restaurant', { id: id }).then(function(res) {
+    if (res.success) { adminToast('Restoran o\'chirildi', 'success'); loadRestaurants(); }
     else adminToast(typeof res.data === 'string' ? res.data : 'Xatolik!', 'error');
   });
 }

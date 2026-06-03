@@ -161,7 +161,7 @@ switch ($action) {
     // ── MENU ──
     case 'get_menu':
         $cats  = db()->query("SELECT * FROM categories ORDER BY sort_order")->fetchAll();
-        $prods = db()->query("SELECT * FROM products WHERE available=1 ORDER BY category_id")->fetchAll();
+        $prods = db()->query("SELECT p.*, r.name as restaurant_name FROM products p LEFT JOIN restaurants r ON p.restaurant_id=r.id WHERE p.available=1 ORDER BY p.category_id")->fetchAll();
         $menu = [];
         foreach ($cats as $c) {
             $c['products'] = array_values(array_filter($prods, fn($p) => $p['category_id'] == $c['id']));
