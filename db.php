@@ -61,6 +61,24 @@ function initDB(): void {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
+
+        CREATE TABLE IF NOT EXISTS taxi_rides (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            phone VARCHAR(20),
+            from_address TEXT NOT NULL,
+            to_address TEXT NOT NULL,
+            from_lat DOUBLE,
+            from_lon DOUBLE,
+            to_lat DOUBLE,
+            to_lon DOUBLE,
+            car_type ENUM('ekonom','comfort','minivan') DEFAULT 'ekonom',
+            price DECIMAL(10,2) DEFAULT 0,
+            status ENUM('new','accepted','on_way','arrived','completed','cancelled') DEFAULT 'new',
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
     ");
 
     // Seed categories

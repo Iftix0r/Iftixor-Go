@@ -723,3 +723,73 @@ body {
   border: 1px solid #f59e0b33;
   line-height: 1.4;
 }
+
+/* ── SERVICE SELECTION ── */
+.service-select-wrap {
+  min-height: calc(100dvh - var(--nav-h) - var(--header-h));
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 20px;
+}
+.service-title {
+  font-size: 26px; font-weight: 700;
+  letter-spacing: -0.5px; text-align: center;
+  margin-bottom: 6px;
+}
+.service-subtitle {
+  font-size: 15px; color: var(--subtext);
+  text-align: center; margin-bottom: 32px;
+}
+.service-cards {
+  display: flex; flex-direction: column;
+  gap: 16px; width: 100%; max-width: 340px;
+}
+.service-card {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+  -webkit-user-select: none; user-select: none;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 8px;
+}
+.service-card:active { transform: scale(.97); box-shadow: none; border-color: var(--primary); }
+.service-card-icon { font-size: 52px; line-height: 1; }
+.service-card-name { font-size: 20px; font-weight: 700; }
+.service-card-desc { font-size: 13px; color: var(--subtext); line-height: 1.4; }
+
+/* ── TAXI PAGE ── */
+.taxi-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  flex-shrink: 0; display: inline-block;
+}
+.taxi-dot-from { background: var(--green); }
+.taxi-dot-to   { background: var(--red); }
+
+.taxi-info-bar {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--primary); font-weight: 500;
+  background: var(--primary-bg);
+  border-radius: 10px; padding: 9px 14px;
+  margin: 0 16px 16px;
+}
+
+/* ── TAXI SUCCESS ── */
+.taxi-success-info {
+  margin: 12px 0 8px; width: 100%;
+}
+.taxi-route {
+  background: var(--card);
+  border-radius: var(--radius); padding: 14px 20px;
+  box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 12px;
+  max-width: 300px; margin: 0 auto;
+  text-align: left;
+}
+.taxi-route-row {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 15px; font-weight: 500;
+}

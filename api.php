@@ -411,6 +411,160 @@ switch ($action) {
         resp(db()->query("SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id=c.id ORDER BY p.category_id, p.id")->fetchAll());
         break;
 
+// ══════════ TAXI ══════════
+
+    case 'taxi_price':
+        // Masofaga qarab narx hisoblash
+        $fromLat = (float)($input['from_lat'] ?? 0);
+        $fromLon = (float)($input['from_lon'] ?? 0);
+        $toLat   = (float)($input['to_lat']   ?? 0);
+        $toLon   = (float)($input['to_lon']   ?? 0);
+        $type    = $input['car_type'] ?? 'ekonom';
+
+        // Haversine formula - km
+        $dist = 0;
+        if ($fromLat && $toLat) {
+            $R    = 6371;
+            $dLat = deg2rad($toLat - $fromLat);
+            $dLon = deg2rad($toLon - $fromLon);
+            $a    = sin($dLat/2)*sin($dLat/2) + cos(deg2rad($fromLat))*cos(deg2rad($toLat))*sin($dLon/2)*sin($dLon/2);
+            $dist = $R * 2 * atan2(sqrt($a), sqrt(1-$a));
+        }
+
+        // Tarif (so'm/km) + boshlang'ich narx
+        $tariffs = [
+            'ekonom'  => ['start' => 5000,  'per_km' => 1500, 'label' => 'Ekonom',  'min' => 7000],
+            'comfort' => ['start' => 8000,  'per_km' => 2200, 'label' => 'Comfort',  'min' => 12000],
+            'minivan' => ['start' => 12000, 'per_km' => 3000, 'label' => 'Minivan',  'min' => 18000],
+        ];
+
+        $prices = [];
+        foreach ($tariffs as $key => $t) {
+            $price = $t['start'] + round($dist * $t['per_km'] / 500) * 500;
+            $price = max($price, $t['min']);
+            $prices[$key] = ['price' => $price, 'label' => $t['label'], 'dist_km' => round($dist, 1)];
+        }
+        resp(['prices' => $prices, 'dist_km' => round($dist, 1)]);
+        break;
+
+    case 'taxi_order':
+        $auth   = requireTelegramUser();
+        $userId = (int)($input['user_id'] ?? 0);
+        if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
+
+        $from    = trim($input['from_address'] ?? '');
+        $to      = trim($input['to_address']   ?? '');
+        $phone   = trim($input['phone']        ?? '');
+        $type    = $input['car_type'] ?? 'ekonom';
+        $price   = (float)($input['price']     ?? 0);
+        $note    = trim($input['note']         ?? '');
+        $fromLat = (float)($input['from_lat']  ?? 0);
+        $fromLon = (float)($input['from_lon']  ?? 0);
+        $toLat   = (float)($input['to_lat']    ?? 0);
+        $toLon   = (float)($input['to_lon']    ?? 0);
+
+        if (!$from || !$to || !$phone) resp('from, to va phone kerak', false);
+        if (!$userId) resp('No user', false);
+
+        // Bloklangan foydalanuvchi tekshiruvi
+        $chk = db()->prepare("SELECT is_blocked FROM users WHERE id=?");
+        $chk->execute([$userId]);
+        $cu = $chk->fetch();
+        if ($cu && $cu['is_blocked']) resp('Siz bloklangansiz', false);
+
+        $s = db()->prepare(
+            "INSERT INTO taxi_rides (user_id, phone, from_address, to_address, from_lat, from_lon, to_lat, to_lon, car_type, price, note)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+        );
+        $s->execute([$userId, $phone, $from, $to, $fromLat, $fromLon, $toLat, $toLon, $type, $price, $note]);
+        $rideId = db()->lastInsertId();
+
+        // Foydalanuvchi ma'lumotlari
+        $u = db()->prepare("SELECT * FROM users WHERE id=?");
+        $u->execute([$userId]);
+        $u = $u->fetch();
+        $name  = trim(($u['first_name']??'').' '.($u['last_name']??''));
+        $uname = $u['username'] ? "@{$u['username']}" : "ID: $userId";
+
+        $typeLabels = ['ekonom' => '🚗 Ekonom', 'comfort' => '🚙 Comfort', 'minivan' => '🚐 Minivan'];
+        $typeLabel  = $typeLabels[$type] ?? $type;
+
+        $fromMaps = $fromLat ? "https://maps.google.com/?q={$fromLat},{$fromLon}" : '';
+        $toMaps   = $toLat   ? "https://maps.google.com/?q={$toLat},{$toLon}"     : '';
+
+        $msg = "🚕 *Yangi Taxi #{$rideId}*\n\n"
+             . "👤 *Mijoz:* {$name} ({$uname})\n"
+             . "📞 *Tel:* {$phone}\n"
+             . "{$typeLabel}\n\n"
+             . "📍 *Qayerdan:* {$from}" . ($fromMaps ? " [🗺]({$fromMaps})" : '') . "\n"
+             . "🏁 *Qayerga:* {$to}"   . ($toMaps   ? " [🗺]({$toMaps})"   : '') . "\n"
+             . "💰 *Narx:* " . number_format($price, 0, '.', ' ') . " so'm\n"
+             . ($note ? "📝 *Izoh:* {$note}\n" : '')
+             . "🕐 " . date('d.m.Y H:i');
+
+        tgReq('sendMessage', [
+            'chat_id'      => GROUP_CHAT_ID,
+            'text'         => $msg,
+            'parse_mode'   => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [[
+                ['text' => '✅ Qabul',   'callback_data' => "taxi_accept_{$rideId}"],
+                ['text' => '❌ Bekor',   'callback_data' => "taxi_cancel_{$rideId}"],
+            ]]]
+        ]);
+        resp(['ride_id' => $rideId, 'price' => $price]);
+        break;
+
+    case 'my_taxi_rides':
+        $auth   = requireTelegramUser();
+        $userId = (int)($_GET['user_id'] ?? 0);
+        if ($userId !== (int)$auth['id']) resp('Unauthorized', false);
+        $s = db()->prepare("SELECT * FROM taxi_rides WHERE user_id=? ORDER BY created_at DESC LIMIT 10");
+        $s->execute([$userId]);
+        resp($s->fetchAll());
+        break;
+
+    case 'admin_taxi_rides':
+        requireAdmin();
+        $status = $_GET['status'] ?? '';
+        if ($status) {
+            $s = db()->prepare(
+                "SELECT r.*, u.first_name, u.last_name, u.username
+                 FROM taxi_rides r LEFT JOIN users u ON r.user_id=u.id
+                 WHERE r.status=? ORDER BY r.created_at DESC LIMIT 100"
+            );
+            $s->execute([$status]);
+        } else {
+            $s = db()->query(
+                "SELECT r.*, u.first_name, u.last_name, u.username
+                 FROM taxi_rides r LEFT JOIN users u ON r.user_id=u.id
+                 ORDER BY r.created_at DESC LIMIT 100"
+            );
+        }
+        resp($s->fetchAll());
+        break;
+
+    case 'admin_update_taxi':
+        requireAdmin();
+        $rideId    = $input['ride_id'] ?? 0;
+        $newStatus = $input['status']  ?? '';
+        if (!$rideId || !$newStatus) resp('Missing data', false);
+        db()->prepare("UPDATE taxi_rides SET status=? WHERE id=?")->execute([$newStatus, $rideId]);
+        $r = db()->prepare("SELECT user_id FROM taxi_rides WHERE id=?");
+        $r->execute([$rideId]); $r = $r->fetch();
+        if ($r) {
+            $msgs = [
+                'accepted'  => "✅ *#{$rideId} taxi buyurtmangiz qabul qilindi!*\n🚕 Haydovchi yo'lda...",
+                'on_way'    => "🚕 *#{$rideId} Haydovchi sizga qarab kelyapti!*",
+                'arrived'   => "📍 *#{$rideId} Haydovchi yetib keldi!*\nChiqib keling 🚗",
+                'completed' => "✅ *#{$rideId} Safaringiz yakunlandi!*\nSafar uchun rahmat 😊",
+                'cancelled' => "❌ *#{$rideId} Taxi buyurtmangiz bekor qilindi.*",
+            ];
+            if (isset($msgs[$newStatus]))
+                tgReq('sendMessage', ['chat_id' => $r['user_id'], 'text' => $msgs[$newStatus], 'parse_mode' => 'Markdown']);
+        }
+        resp('updated');
+        break;
+
     default:
         resp('Unknown action', false);
 }

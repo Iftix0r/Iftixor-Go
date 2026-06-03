@@ -129,6 +129,29 @@ function fmt(n) {
   return num.toLocaleString('ru-RU').replace(/,/g, ' ') + " so'm";
 }
 
+// ── SERVICE SELECTION ──
+let currentService = null;
+
+function selectService(type) {
+  currentService = type;
+  if (type === 'food') {
+    showPage('home');
+    setActiveNav('navFood');
+  } else if (type === 'taxi') {
+    // Pre-fill taxi phone from profile
+    const ph = $('profilePhone')?.value?.trim() || '';
+    if (ph) { const tp = $('taxiPhone'); if (tp) tp.value = ph; }
+    showPage('taxi');
+    setActiveNav('navTaxi');
+  }
+}
+
+function setActiveNav(activeId) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const el = $(activeId);
+  if (el) el.classList.add('active');
+}
+
 // ── SPLASH ──
 function hideSplash() {
   const splash = $('splash');
@@ -157,6 +180,8 @@ async function init() {
     if (tgUser?.id) { loadProfile(); loadOrderHistory(); }
     renderCart();
     updateCartBadge();
+    showPage('service');
+    setActiveNav('navService');
   } catch(e) {
     console.warn('Init error:', e);
     const hName = $('headerName');
@@ -705,10 +730,10 @@ function showOrderSuccess(orderId, total) {
       <div id="successStatus" class="success-status-badge status-new">⏳ Tasdiqlanmoqda...</div>
       <div class="success-desc">30–60 daqiqada yetkazamiz 🚀</div>
       <div class="success-actions">
-        <button class="btn-primary" onclick="navTo('profile', document.querySelectorAll('.nav-item')[2]);scrollToOrders()" style="margin-bottom:8px">
+        <button class="btn-primary" onclick="navTo('profile', $('navProfile'));scrollToOrders()" style="margin-bottom:8px">
           📋 Buyurtmalarimni ko'rish
         </button>
-        <button class="btn-secondary" onclick="navTo('home', document.querySelectorAll('.nav-item')[0])">
+        <button class="btn-secondary" onclick="navTo('service', null)">
           Menyuga qaytish
         </button>
       </div>`;
@@ -828,10 +853,13 @@ function showPage(name) {
 
 function navTo(name, el) {
   showPage(name);
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  if (el) el.classList.add('active');
+  if (el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+  }
   if (name === 'profile') { loadProfile(); loadOrderHistory(); }
   if (name === 'cart') renderCart();
+  if (name === 'service') setActiveNav('navService');
   if (name !== 'checkout' && name !== 'success') {
     if (tg?.BackButton) tg.BackButton.hide();
   }
@@ -885,14 +913,60 @@ async function get(action) {
   } catch { return { success: false }; }
 }
 
+// ── TAXI ORDER ──
+async function submitTaxi() {
+  const from  = $('taxiFrom')?.value.trim();
+  const to    = $('taxiTo')?.value.trim();
+  const phone = $('taxiPhone')?.value.trim();
+  const note  = $('taxiNote')?.value.trim();
+
+  if (!from)  return toast('Qayerdan ekanligini kiriting!');
+  if (!to)    return toast('Qayerga borishingizni kiriting!');
+  if (!phone) return toast('Telefon raqam kiriting!');
+  if (!/^\+?[\d\s\-\(\)]{7,15}$/.test(phone)) return toast('Telefon raqam noto\'g\'ri!');
+
+  const btn = document.querySelector('#page-taxi .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
+
+  const res = await post('place_order', {
+    user_id: tgUser?.id || 0,
+    items: [{ id: 0, name: `🚖 Taxi: ${from} → ${to}`, price: 0, qty: 1 }],
+    phone, address: from,
+    note: `Taxi: ${from} → ${to}${note ? ' | ' + note : ''}`,
+    type: 'taxi'
+  });
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Taxi chaqirish 🚖'; }
+
+  if (res.success) {
+    playSound('success');
+    $('taxiFrom').value = '';
+    $('taxiTo').value   = '';
+    $('taxiNote').value = '';
+    const info = $('taxiSuccessInfo');
+    if (info) info.innerHTML = `
+      <div class="taxi-route">
+        <div class="taxi-route-row"><span class="taxi-dot taxi-dot-from"></span><span>${esc(from)}</span></div>
+        <div class="taxi-route-row"><span class="taxi-dot taxi-dot-to"></span><span>${esc(to)}</span></div>
+      </div>`;
+    showPage('taxi-success');
+    setActiveNav('navTaxi');
+  } else {
+    playSound('error');
+    toast('❌ Xatolik yuz berdi, qayta urinib ko\'ring!');
+  }
+}
+
 // ── TELEGRAM BACK BUTTON ──
 if (tg?.BackButton) {
   tg.BackButton.onClick(() => {
     const active = document.querySelector('.page.active');
     if (active?.id === 'page-checkout') {
-      navTo('cart', document.querySelectorAll('.nav-item')[1]);
+      navTo('cart', $('navCart'));
     } else if (active?.id === 'page-success') {
-      navTo('home', document.querySelectorAll('.nav-item')[0]);
+      navTo('service', null);
+    } else if (active?.id === 'page-taxi-success') {
+      navTo('taxi', null);
     } else {
       tg.BackButton.hide();
     }
