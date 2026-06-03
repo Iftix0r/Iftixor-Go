@@ -165,34 +165,84 @@ function makeProductCard(p) {
   card.onclick = () => openModal(p);
   const cartItem = cart.find(i => i.id == p.id);
   const inCart = cartItem ? cartItem.qty : 0;
-  const imgHtml = p.image
-    ? `<img src="${p.image}" class="product-thumb" alt="${esc(p.name)}" loading="lazy" onerror="this.parentElement.innerHTML='${thumbPlaceholder().replace(/'/g, "\\'")}'">` 
-    : thumbPlaceholder();
 
-  card.innerHTML = `
-    ${imgHtml}
-    <div class="product-body">
-      <div class="product-name">${esc(p.name)}</div>
-      ${p.description ? `<div class="product-desc">${esc(p.description)}</div>` : ''}
-      <div class="product-row">
-        <div class="product-price">${fmt(p.price)}</div>
-        ${inCart > 0
-          ? `<div class="product-qty-ctrl" id="pqc-${p.id}">
-               <button class="pqc-btn" onclick="event.stopPropagation();changeCardQty(${p.id},-1)">−</button>
-               <span class="pqc-val">${inCart}</span>
-               <button class="pqc-btn" onclick="event.stopPropagation();changeCardQty(${p.id},1)">+</button>
-             </div>`
-          : `<button class="product-add" onclick="event.stopPropagation();quickAdd(${p.id})">
-               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
-             </button>`
-        }
-      </div>
-    </div>`;
+  // Rasm — onerror inline string ishlatilmaydi, DOM orqali
+  if (p.image) {
+    const img = document.createElement('img');
+    img.src = p.image;
+    img.className = 'product-thumb';
+    img.alt = p.name || '';
+    img.loading = 'lazy';
+    img.onerror = function() {
+      const ph = document.createElement('div');
+      ph.className = 'product-thumb-placeholder';
+      ph.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg>';
+      this.replaceWith(ph);
+    };
+    card.appendChild(img);
+  } else {
+    const ph = document.createElement('div');
+    ph.className = 'product-thumb-placeholder';
+    ph.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg>';
+    card.appendChild(ph);
+  }
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'product-body';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'product-name';
+  nameEl.textContent = p.name || '';
+  body.appendChild(nameEl);
+
+  if (p.description) {
+    const desc = document.createElement('div');
+    desc.className = 'product-desc';
+    desc.textContent = p.description;
+    body.appendChild(desc);
+  }
+
+  const row = document.createElement('div');
+  row.className = 'product-row';
+
+  const price = document.createElement('div');
+  price.className = 'product-price';
+  price.textContent = fmt(p.price);
+  row.appendChild(price);
+
+  if (inCart > 0) {
+    const ctrl = document.createElement('div');
+    ctrl.className = 'product-qty-ctrl';
+    ctrl.id = 'pqc-' + p.id;
+    const btnM = document.createElement('button');
+    btnM.className = 'pqc-btn';
+    btnM.textContent = '−';
+    btnM.onclick = e => { e.stopPropagation(); changeCardQty(p.id, -1); };
+    const val = document.createElement('span');
+    val.className = 'pqc-val';
+    val.textContent = inCart;
+    const btnP = document.createElement('button');
+    btnP.className = 'pqc-btn';
+    btnP.textContent = '+';
+    btnP.onclick = e => { e.stopPropagation(); changeCardQty(p.id, 1); };
+    ctrl.append(btnM, val, btnP);
+    row.appendChild(ctrl);
+  } else {
+    const btn = document.createElement('button');
+    btn.className = 'product-add';
+    btn.onclick = e => { e.stopPropagation(); quickAdd(p.id); };
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="12" y1="5" x2="12" y2="19" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>';
+    row.appendChild(btn);
+  }
+
+  body.appendChild(row);
+  card.appendChild(body);
   return card;
 }
 
 function thumbPlaceholder() {
-  return `<div class="product-thumb-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg></div>`;
+  return '<div class="product-thumb-placeholder"><svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="#ff6b35" stroke-width="1.5" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="#ff6b35" stroke-width="1.5"/></svg></div>';
 }
 
 function esc(s) {
