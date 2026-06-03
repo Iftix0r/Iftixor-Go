@@ -19,7 +19,17 @@
   </header>
 
   <!-- Sahifalar -->
-  <div id="page-orders" class="page active">
+  <div id="page-create" class="page">
+    <div class="page-title">Restoranni ro'yxatdan o'tkazish</div>
+    <div class="card">
+      <input type="text" id="createName" placeholder="Restoran nomi (Masalan: Lavash Center)" class="input">
+      <input type="text" id="createPhone" placeholder="Telefon raqam" class="input">
+      <input type="text" id="createAddress" placeholder="Manzil" class="input">
+      <button class="btn btn-primary" onclick="createRestaurant()" style="width:100%; margin-top: 10px;">Yaratish</button>
+    </div>
+  </div>
+
+  <div id="page-orders" class="page">
     <div class="page-title">Buyurtmalar</div>
     <div id="ordersList"></div>
   </div>

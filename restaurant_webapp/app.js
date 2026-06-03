@@ -33,10 +33,22 @@ async function post(action, data = {}) {
 
 async function loadData() {
   const res = await post('rest_get_data');
-  if (res.success === false) {
-    tg.showAlert(res.error || 'Ma\'lumot yuklashda xatolik! Sizga restoran biriktirilmagan bo\'lishi mumkin.');
+  
+  if (res.needs_creation) {
+    switchPage('create');
+    $('restName').textContent = 'Yangi restoran';
+    $('restSub').textContent = 'Ro\'yxatdan o\'tish';
+    document.querySelector('.bottom-nav').style.display = 'none';
     return;
   }
+  
+  if (res.success === false) {
+    tg.showAlert(res.error || 'Ma\'lumot yuklashda xatolik!');
+    return;
+  }
+  
+  document.querySelector('.bottom-nav').style.display = 'flex';
+  switchPage('orders');
   
   state.restaurant = res.restaurant;
   state.products = res.products || [];
@@ -52,6 +64,25 @@ async function loadData() {
     state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
     
   renderProducts();
+}
+
+async function createRestaurant() {
+  const name = $('createName').value;
+  const phone = $('createPhone').value;
+  const address = $('createAddress').value;
+  
+  if (!name || !phone) {
+    tg.showAlert("Nomi va telefon raqamini kiritish majburiy!");
+    return;
+  }
+  
+  const res = await post('rest_create', { name, phone, address });
+  if (res.success) {
+    tg.HapticFeedback.notificationOccurred('success');
+    loadData();
+  } else {
+    tg.showAlert(res.error || "Xatolik yuz berdi");
+  }
 }
 
 function renderProducts() {
