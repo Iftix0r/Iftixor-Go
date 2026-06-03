@@ -1,0 +1,5 @@
+RewriteEngine On
+RewriteBase /
+
+# Alias /admin to the admin panel HTML
+RewriteRule ^admin/?$ /webapp/admin.html [L,R=302]
