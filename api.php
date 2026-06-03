@@ -395,9 +395,9 @@ switch ($action) {
         $role = $input['role'] ?? 'user';
         if (!$uid) resp('No ID', false);
         if (!in_array($role, ['user','seller','admin'], true)) resp('Invalid role', false);
-        // seller bo'lsa restaurant_id ham kerak
         $rid = !empty($input['restaurant_id']) ? (int)$input['restaurant_id'] : null;
-        if ($role === 'seller' && $rid) {
+        if ($role === 'seller' && !$rid) resp('Sotuvchi uchun restoran tanlang', false);
+        if ($role === 'seller') {
             db()->prepare("UPDATE users SET role=?, restaurant_id=? WHERE id=?")->execute([$role, $rid, $uid]);
             db()->prepare("UPDATE restaurants SET owner_tg_id=? WHERE id=?")->execute([$uid, $rid]);
         } else {

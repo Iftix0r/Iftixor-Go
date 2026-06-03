@@ -978,6 +978,10 @@ function saveRole() {
   var role = document.getElementById('roleSelect').value;
   var rid  = document.getElementById('roleRestSelect').value;
   if (!uid) return;
+  if (role === 'seller' && !rid) {
+    adminToast('Sotuvchi uchun restoran tanlang!', 'error');
+    return;
+  }
   var data = { user_id: parseInt(uid), role: role };
   if (role === 'seller' && rid) data.restaurant_id = parseInt(rid);
   post('admin_set_role', data).then(function(res) {
