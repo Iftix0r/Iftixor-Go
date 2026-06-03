@@ -136,6 +136,14 @@ try {
 } catch (Exception $e) { /* ignore */ }
 
 try {
+    $scols = db()->query("SHOW COLUMNS FROM users LIKE 'bot_state'")->fetchAll();
+    if (empty($scols)) {
+        db()->exec("ALTER TABLE users ADD COLUMN bot_state VARCHAR(255) DEFAULT ''");
+        db()->exec("ALTER TABLE users ADD COLUMN bot_temp_data TEXT");
+    }
+} catch (Exception $e) { /* ignore */ }
+
+try {
     db()->exec("
         CREATE TABLE IF NOT EXISTS restaurants (
             id INT AUTO_INCREMENT PRIMARY KEY,
