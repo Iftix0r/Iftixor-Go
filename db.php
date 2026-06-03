@@ -144,6 +144,7 @@ try {
             phone VARCHAR(50),
             is_active TINYINT(1) DEFAULT 1,
             views INT DEFAULT 0,
+            owner_tg_id BIGINT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ");
@@ -153,6 +154,13 @@ try {
     $rcols = db()->query("SHOW COLUMNS FROM restaurants LIKE 'views'")->fetchAll();
     if (empty($rcols)) {
         db()->exec("ALTER TABLE restaurants ADD COLUMN views INT DEFAULT 0");
+    }
+} catch (Exception $e) { /* ignore */ }
+
+try {
+    $rcols2 = db()->query("SHOW COLUMNS FROM restaurants LIKE 'owner_tg_id'")->fetchAll();
+    if (empty($rcols2)) {
+        db()->exec("ALTER TABLE restaurants ADD COLUMN owner_tg_id BIGINT DEFAULT NULL");
     }
 } catch (Exception $e) { /* ignore */ }
 
