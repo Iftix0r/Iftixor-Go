@@ -86,6 +86,7 @@ function switchTab(name) {
   else if (name === 'users') loadUsers();
   else if (name === 'products') loadProducts();
   else if (name === 'categories') loadCategories();
+  else if (name === 'taxi') loadTaxiRides();
   // Mobil sidebar yopish
   var sb = document.getElementById('sidebar');
   var ov = document.getElementById('sidebarOverlay');
@@ -140,6 +141,22 @@ function loadDashboard() {
 
   // Grafik
   loadRevenueChart();
+
+  // Taxi statistika
+  get(withAdmin('admin_taxi_rides&status=new')).then(function(res) {
+    var count = (res.success && res.data) ? res.data.length : 0;
+    setText('sPendingTaxi', count);
+    var badge = document.getElementById('taxiPendingBadge');
+    if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'flex' : 'none'; }
+  });
+  get(withAdmin('admin_taxi_rides')).then(function(res) {
+    if (!res.success || !res.data) return;
+    var today = new Date().toDateString();
+    var todayCount = res.data.filter(function(r) {
+      return new Date(r.created_at.replace(' ', 'T')).toDateString() === today;
+    }).length;
+    setText('sTodayTaxi', todayCount);
+  });
 }
 
 function loadRevenueChart() {

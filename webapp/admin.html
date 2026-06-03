@@ -56,6 +56,13 @@
       Kategoriyalar
     </a>
 
+    <div class="nav-section">Taxi</div>
+    <a class="nav-link" onclick="switchTab('taxi')" id="tab-taxi">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M5 9V7a2 2 0 012-2h10a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="7" cy="16" r="1.5" fill="currentColor"/><circle cx="17" cy="16" r="1.5" fill="currentColor"/><path d="M3 13h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Taxi buyurtmalar
+      <span class="nav-badge" id="taxiPendingBadge" style="display:none">0</span>
+    </a>
+
     <div class="nav-section">Xabarlar</div>
     <a class="nav-link" onclick="switchTab('broadcast')" id="tab-broadcast">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22l-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -150,6 +157,24 @@
         <div class="stat-info">
           <div class="stat-number" id="sTotalRevenue"><span class="stat-loading"></span></div>
           <div class="stat-label">Jami daromad</div>
+        </div>
+      </div>
+      <div class="stat-card stat-blue" style="--stat-glow:rgba(37,99,235,.08)">
+        <div class="stat-icon" style="background:rgba(37,99,235,.12);color:#3b82f6">
+          <svg viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M5 9V7a2 2 0 012-2h10a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="7" cy="16" r="1.5" fill="currentColor"/><circle cx="17" cy="16" r="1.5" fill="currentColor"/></svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-number" id="sTodayTaxi">—</div>
+          <div class="stat-label">Bugungi taxi</div>
+        </div>
+      </div>
+      <div class="stat-card stat-purple" style="--stat-glow:rgba(168,85,247,.08)">
+        <div class="stat-icon" style="background:rgba(168,85,247,.12);color:#a855f7">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div class="stat-info">
+          <div class="stat-number" id="sPendingTaxi">—</div>
+          <div class="stat-label">Taxi kutilmoqda</div>
         </div>
       </div>
     </div>
@@ -250,6 +275,33 @@
       </button>
     </div>
     <div class="card"><div id="categoriesList"><div class="empty-state" style="padding:40px"><p>Yuklanmoqda...</p></div></div></div>
+  </section>
+
+  <!-- TAXI -->
+  <section class="tab-content" id="content-taxi">
+    <div class="page-header">
+      <div>
+        <h1>Taxi buyurtmalar</h1>
+        <p class="page-desc" id="taxiCountDesc"></p>
+      </div>
+      <div class="header-actions">
+        <div class="filter-row">
+          <select id="taxiFilter" onchange="loadTaxiRides()">
+            <option value="">Barchasi</option>
+            <option value="new">🔵 Yangi</option>
+            <option value="accepted">🟢 Qabul qilingan</option>
+            <option value="on_way">🟠 Yo'lda</option>
+            <option value="arrived">🟡 Yetib keldi</option>
+            <option value="completed">🟣 Yakunlandi</option>
+            <option value="cancelled">🔴 Bekor</option>
+          </select>
+          <button class="btn-sm" onclick="loadTaxiRides()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div id="taxiRidesList"><div class="empty-state" style="padding:40px"><p>Yuklanmoqda...</p></div></div></div>
   </section>
 
   <!-- BROADCAST -->
@@ -402,6 +454,19 @@
       </button>
     </div>
     <div id="orderDetailBody"></div>
+  </div>
+</div>
+
+<!-- Taxi Detail Modal -->
+<div class="modal hidden" id="taxiDetailModal">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <h3>Taxi tafsiloti</h3>
+      <button class="modal-close" onclick="closeTaxiDetail()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="taxiDetailBody"></div>
   </div>
 </div>
 
