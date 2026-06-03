@@ -590,26 +590,22 @@ if (isset($update['callback_query'])) {
     elseif ($data === 'prod_skip_desc') {
         $role = getUserRole($fromId);
         if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
-        $d = db()->prepare("SELECT * FROM seller_draft WHERE user_id=?");
-        $d->execute([$fromId]); $d = $d->fetch();
-        if (!$d || !$d['name'] || !$d['price']) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Xatolik']); exit; }
-        $rest = getSellerRestaurant($fromId);
-        db()->prepare("INSERT INTO products (category_id, restaurant_id, name, description, price, available) VALUES (?,?,?,?,?,1)")
-            ->execute([$d['cat_id'], $rest['id'], $d['name'], '', $d['price']]);
-        db()->prepare("DELETE FROM seller_draft WHERE user_id=?")->execute([$fromId]);
-        clearSellerState($fromId);
-        tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => '✅ Qo\'shildi']);
-        $products = getSellerProducts($fromId);
-        $rows = [];
-        foreach ($products as $p) {
-            $av = $p['available'] ? '✅' : '❌';
-            $rows[] = [['text' => "{$av} {$p['name']} — ".number_format($p['price'])." so'm", 'callback_data' => 'prod_detail_'.$p['id']]];
-        }
-        $rows[] = [['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'prod_add_start']];
-        $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'seller_back']];
+        db()->prepare("INSERT INTO seller_draft (user_id, desc_text) VALUES (?,?) ON DUPLICATE KEY UPDATE desc_text=VALUES(desc_text)")->execute([$fromId, '']);
+        setSellerState($fromId, 'awaiting_prod_image', 0);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
         tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
-            'text' => "✅ *{$d['name']}* qo'shildi!\n\n🍽️ *Menyu:*",
-            'parse_mode' => 'Markdown', 'reply_markup' => ['inline_keyboard' => $rows]]);
+            'text' => "Mahsulot rasmini yuboring (yoki o'tkazib yuboring):",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [[['text' => 'Skip', 'callback_data' => 'prod_skip_image']]]]]);
+        exit;
+    }
+
+    elseif ($data === 'prod_skip_image') {
+        $role = getUserRole($fromId);
+        if ($role !== 'seller') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $rest = getSellerRestaurant($fromId);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Qo\'shildi']);
+        saveProdFromDraft($fromId, $rest, '');
         exit;
     }
 
