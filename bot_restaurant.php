@@ -91,15 +91,24 @@ $r = db()->prepare("SELECT * FROM restaurants WHERE owner_tg_id=?");
 $r->execute([$chatId]);
 $rest = $r->fetch();
 
-function mainKeyboard($rest) {
+function mainInlineKeyboard($rest) {
     if (!$rest) {
-        return ['keyboard' => [[['text' => '🏪 Do\'kon yaratish']]], 'resize_keyboard' => true];
+        return ['inline_keyboard' => [
+            [['text' => '🏪 Do\'kon yaratish', 'callback_data' => 'action_create_restaurant']]
+        ]];
     }
-    return ['keyboard' => [
-        [['text' => '📦 Yangi buyurtmalar'], ['text' => '🍔 Mahsulotlarim']],
-        [['text' => '➕ Mahsulot qo\'shish'], ['text' => '📊 Hisobot va Sozlamalar']]
-    ], 'resize_keyboard' => true];
+    return ['inline_keyboard' => [
+        [
+            ['text' => '📦 Yangi buyurtmalar', 'callback_data' => 'action_new_orders'],
+            ['text' => '🍔 Mahsulotlarim', 'callback_data' => 'action_my_products']
+        ],
+        [
+            ['text' => '➕ Mahsulot qo\'shish', 'callback_data' => 'action_add_product'],
+            ['text' => '📊 Hisobot va Sozlamalar', 'callback_data' => 'action_report']
+        ]
+    ]];
 }
+
 
 function getOrderKeyboard($orderId) {
     return ['inline_keyboard' => [
@@ -123,7 +132,7 @@ if ($text === '/start' || $text === 'Ortga' || $text === 'Bekor qilish') {
         'chat_id' => $chatId,
         'text' => $welcome,
         'parse_mode' => 'Markdown',
-        'reply_markup' => mainKeyboard($rest)
+        'reply_markup' => mainInlineKeyboard($rest)
     ]);
     exit;
 }
@@ -131,7 +140,7 @@ if ($text === '/start' || $text === 'Ortga' || $text === 'Bekor qilish') {
 if (!$rest) {
     if ($text === '🏪 Do\'kon yaratish') {
         setState($chatId, 'create_name');
-        tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "🏢 Do'koningiz nomini kiriting:", 'reply_markup' => ['keyboard' => [[['text' => 'Bekor qilish']]], 'resize_keyboard' => true]]);
+        tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "🏢 Do'koningiz nomini kiriting:"]);
         exit;
     }
     
@@ -157,7 +166,6 @@ if (!$rest) {
           ->execute([$name, $phone, $address, $chatId]);
           
         setState($chatId, '');
-        $newRest = db()->prepare("SELECT * FROM restaurants WHERE owner_tg_id=?")->execute([$chatId]);
         $newRest = db()->prepare("SELECT * FROM restaurants WHERE owner_tg_id=?");
         $newRest->execute([$chatId]);
         $rData = $newRest->fetch();
@@ -165,7 +173,7 @@ if (!$rest) {
         tg_rest('sendMessage', [
             'chat_id' => $chatId, 
             'text' => "✅ Do'koningiz muvaffaqiyatli yaratildi!",
-            'reply_markup' => mainKeyboard($rData)
+            'reply_markup' => mainInlineKeyboard($rData)
         ]);
         exit;
     }
@@ -224,7 +232,7 @@ if (!$rest) {
     
     if ($text === '➕ Mahsulot qo\'shish') {
         setState($chatId, 'add_prod_name');
-        tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📝 Mahsulot nomini kiriting:", 'reply_markup' => ['keyboard' => [[['text' => 'Bekor qilish']]], 'resize_keyboard' => true]]);
+        tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "📝 Mahsulot nomini kiriting:"]);
         exit;
     }
     
@@ -241,21 +249,20 @@ if (!$rest) {
         $cats = db()->query("SELECT id, name FROM categories ORDER BY sort_order")->fetchAll();
         $btns = [];
         foreach($cats as $c) {
-            $btns[] = [['text' => "Kategoriya: " . $c['id'] . " - " . $c['name']]];
+            $btns[] = [['text' => "📂 " . $c['name'], 'callback_data' => "cat_" . $c['id']]];
         }
-        $btns[] = [['text' => 'Bekor qilish']];
         
         tg_rest('sendMessage', [
             'chat_id' => $chatId, 
-            'text' => "📂 Kategoriyani tanlang (yoki ID yozing):",
-            'reply_markup' => ['keyboard' => $btns, 'resize_keyboard' => true]
+            'text' => "📂 Kategoriyani tanlang:",
+            'reply_markup' => ['inline_keyboard' => $btns]
         ]);
         exit;
     }
     
     if ($state === 'add_prod_cat') {
         $catId = 1;
-        if (preg_match('/Kategoriya: (\d+)/', $text, $m)) {
+        if (preg_match('/cat_(\d+)/', $text, $m)) {
             $catId = (int)$m[1];
         } else {
             $catId = (int)$text ?: 1;
