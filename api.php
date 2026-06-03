@@ -251,35 +251,21 @@ switch ($action) {
         ]);
         break;
         
-    case 'rest_save_product':
+    case 'rest_delete':
         $auth = requireTelegramUser();
         $tgId = (int)$auth['id'];
         $r = db()->prepare("SELECT id FROM restaurants WHERE owner_tg_id=?");
         $r->execute([$tgId]);
         $rest = $r->fetch();
         if (!$rest) resp('Restoran topilmadi', false);
-        
-        $pid = (int)($input['id'] ?? 0);
-        $name = trim($input['name'] ?? '');
-        $desc = trim($input['description'] ?? '');
-        $price = (float)($input['price'] ?? 0);
-        $image = trim($input['image'] ?? '');
-        $cat = (int)($input['category_id'] ?? 0);
-        $av = (int)($input['available'] ?? 1);
-        
-        if ($pid > 0) {
-            // Verify ownership
-            $check = db()->prepare("SELECT id FROM products WHERE id=? AND restaurant_id=?");
-            $check->execute([$pid, $rest['id']]);
-            if (!$check->fetch()) resp('Ruxsat etilmagan', false);
-            
-            db()->prepare("UPDATE products SET name=?, description=?, price=?, image=?, category_id=?, available=? WHERE id=?")
-              ->execute([$name, $desc, $price, $image, $cat, $av, $pid]);
-        } else {
-            db()->prepare("INSERT INTO products (name, description, price, image, category_id, available, restaurant_id) VALUES (?,?,?,?,?,?,?)")
-              ->execute([$name, $desc, $price, $image, $cat, $av, $rest['id']]);
-        }
-        resp(['success' => true]);
+        $restId = $rest['id'];
+        // Delete related orders
+        db()->prepare("DELETE FROM orders WHERE restaurant_id=?")->execute([$restId]);
+        // Delete products
+        db()->prepare("DELETE FROM products WHERE restaurant_id=?")->execute([$restId]);
+        // Delete restaurant
+        db()->prepare("DELETE FROM restaurants WHERE id=?")->execute([$restId]);
+        resp(['success'=>true]);
         break;
 
     case 'rest_create':
