@@ -6,6 +6,112 @@ let deliveryFee = 5000;
 let orderPollTimer = null;
 const $ = id => document.getElementById(id);
 
+// ── SOUND ENGINE (Web Audio API, faylsiz) ──
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) {
+    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  return _audioCtx;
+}
+
+function playSound(type) {
+  // Telegram HapticFeedback ham ishlatamiz
+  try {
+    if (tg?.HapticFeedback) {
+      const hmap = {
+        add:     () => tg.HapticFeedback.impactOccurred('medium'),
+        remove:  () => tg.HapticFeedback.impactOccurred('light'),
+        success: () => tg.HapticFeedback.notificationOccurred('success'),
+        error:   () => tg.HapticFeedback.notificationOccurred('error'),
+        tap:     () => tg.HapticFeedback.impactOccurred('light'),
+        clear:   () => tg.HapticFeedback.notificationOccurred('warning'),
+      };
+      hmap[type]?.();
+    }
+  } catch(e) {}
+
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+
+  // AudioContext foydalanuvchi harakati bilan yoqilishi kerak
+  if (ctx.state === 'suspended') { ctx.resume(); }
+
+  const sounds = {
+    // Savatga qo'shish: ko'tariluvchi 2 notalı "pop"
+    add: () => {
+      _beep(ctx, 'sine',    520, 0.13, 0,    0.08, 0.06);
+      _beep(ctx, 'sine',    780, 0.10, 0.07, 0.08, 0.06);
+    },
+    // Savatdan olib tashlash: tushuvchi "pop"
+    remove: () => {
+      _beep(ctx, 'sine',    440, 0.10, 0,    0.06, 0.05);
+      _beep(ctx, 'sine',    300, 0.07, 0.05, 0.06, 0.05);
+    },
+    // Buyurtma berildi: muvaffaqiyat akkord
+    success: () => {
+      _beep(ctx, 'sine',    523, 0.12, 0,    0.10, 0.08);
+      _beep(ctx, 'sine',    659, 0.12, 0.10, 0.10, 0.08);
+      _beep(ctx, 'sine',    784, 0.15, 0.20, 0.18, 0.10);
+    },
+    // Xatolik: ikki marta past
+    error: () => {
+      _beep(ctx, 'square', 220, 0.12, 0,    0.10, 0.08);
+      _beep(ctx, 'square', 180, 0.10, 0.13, 0.10, 0.08);
+    },
+    // Tugma bosildi: yumshoq klik
+    tap: () => {
+      _beep(ctx, 'sine',   600, 0.07, 0, 0.05, 0.04);
+    },
+    // Savatni tozalash: sliding down
+    clear: () => {
+      _beepSlide(ctx, 400, 180, 0.10, 0, 0.25);
+    },
+    // Modal ochildi: yengil "whoosh"
+    open: () => {
+      _beep(ctx, 'sine',   800, 0.06, 0,    0.04, 0.08);
+      _beep(ctx, 'sine',   640, 0.05, 0.04, 0.06, 0.06);
+    },
+  };
+
+  sounds[type]?.();
+}
+
+// Oddiy beep: tembr, chastota, tovush balandligi, boshlash, davomiylik, so'nish
+function _beep(ctx, type, freq, vol, startOffset, dur, release) {
+  try {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type      = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + startOffset);
+    gain.gain.setValueAtTime(0, ctx.currentTime + startOffset);
+    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startOffset + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startOffset + dur + release);
+    osc.start(ctx.currentTime + startOffset);
+    osc.stop(ctx.currentTime + startOffset + dur + release + 0.01);
+  } catch(e) {}
+}
+
+// Sliding (glide) beep: chastota boshliqdan oxirgacha o'zgaradi
+function _beepSlide(ctx, freqFrom, freqTo, vol, startOffset, dur) {
+  try {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freqFrom, ctx.currentTime + startOffset);
+    osc.frequency.exponentialRampToValueAtTime(freqTo, ctx.currentTime + startOffset + dur);
+    gain.gain.setValueAtTime(vol, ctx.currentTime + startOffset);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startOffset + dur);
+    osc.start(ctx.currentTime + startOffset);
+    osc.stop(ctx.currentTime + startOffset + dur + 0.02);
+  } catch(e) {}
+}
+
+
 // ── CART: localStorage saqlash ──
 function saveCart() {
   try { localStorage.setItem('iftixor_cart', JSON.stringify(cart)); } catch(e) {}
