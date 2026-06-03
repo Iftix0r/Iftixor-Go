@@ -529,9 +529,14 @@ function makeProductCard(p) {
   body.appendChild(nameEl);
 
   if (p.restaurant_name) {
+    const initials = p.restaurant_name.split(' ').map(w => w[0] || '').join('').toUpperCase().slice(0, 2);
     const rest = document.createElement('div');
     rest.className = 'product-restaurant';
-    rest.innerHTML = '🏪 ' + esc(p.restaurant_name);
+    rest.innerHTML = `
+      <span class="prest-avatar">${esc(initials)}</span>
+      <span class="prest-name">${esc(p.restaurant_name)}</span>
+    `;
+    rest.title = p.restaurant_name;
     rest.onclick = (e) => {
       e.stopPropagation();
       setRestaurantFilter(p.restaurant_id, p.restaurant_name);

@@ -553,9 +553,39 @@ body {
   flex: 1;
 }
 .product-restaurant {
-  font-size: 10px; color: var(--subtext);
-  margin-top: 2px; padding: 2px 0;
-  display: flex; align-items: center; gap: 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  cursor: pointer;
+  padding: 3px 0;
+}
+.prest-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff6b35, #ff3d00);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1.5px #fff, 0 0 0 2.5px #ff6b35;
+  letter-spacing: 0;
+}
+.prest-name {
+  font-size: 10px;
+  color: var(--subtext);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+.product-restaurant:active .prest-name {
+  color: var(--primary);
 }
 .product-order-count {
   font-size: 10px; color: var(--primary); font-weight: 500;
