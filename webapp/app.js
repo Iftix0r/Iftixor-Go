@@ -699,20 +699,20 @@ function setRestaurantFilter(id, name) {
   const page = $('page-restaurant');
   page.innerHTML = `
     <div class="rest-page-header">
-      <button class="rest-page-back" onclick="showFoodPage('home')">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><polyline points="15 18 9 12 15 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <div class="rest-page-profile">
+      <div class="rest-page-toprow">
+        <button class="rest-page-back" onclick="showFoodPage('home')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polyline points="15 18 9 12 15 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <div class="rest-page-avatar-ring">
           <div class="rest-page-avatar">${esc(initials)}</div>
         </div>
         <div class="rest-page-info">
           <div class="rest-page-name">${esc(name)}</div>
-          <div class="rest-page-sub">${allProds.length} ta mahsulot</div>
+          <div class="rest-page-sub">${allProds.length} ta mahsulot • Restoran</div>
         </div>
       </div>
       <div class="rest-page-search-wrap">
-        <svg class="rest-page-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="#8e8e93" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="#8e8e93" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg class="rest-page-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="rgba(255,255,255,0.7)" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round"/></svg>
         <input id="restSearchInput" type="text" class="search-input" placeholder="Mahsulot qidiring..." oninput="filterRestaurantProducts(this.value)">
       </div>
     </div>
