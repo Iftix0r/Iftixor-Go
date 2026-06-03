@@ -791,24 +791,26 @@ if ($userRole === 'seller' && $text && !str_starts_with($text, '/')) {
 }
 
 if (preg_match('~^/start(?:@\w+)?~i', $text) || mb_strtolower($text) === 'start') {
-    $welcome = "👋 Assalomu alaykum, *{$firstName}*!\n\n";
+    $welcome = "\xF0\x9F\x91\x8B Assalomu alaykum, *{$firstName}*!\n\n";
 
     if ($userRole === 'seller') {
         $rest = getSellerRestaurant($chatId);
         if (!$rest) {
-            sendMsg($chatId, "🚫 Siz sotuvchi rolidasiz, lekin restoran bilan bog'lanmagan.\n\nRestoranni yaratish yoki admin bilan bog'lanish zarur.");
+            sendMsg($chatId, "\xF0\x9F\x9A\xAB Siz sotuvchi rolidasiz, lekin restoran topilmadi.\n\nAdmin bilan bog'laning.");
             exit;
         }
-        $restName = $rest['name'];
-        $welcome .= "🏪 *Sotuvchi paneli* — {$restName}\n\nBuyurtmalar va menyuni boshqaring 👇";
+        $welcome .= "\xF0\x9F\x8F\xAA *Sotuvchi paneli* \xE2\x80\x94 {$rest['name']}\n\nBuyurtmalar va menyuni boshqaring \xF0\x9F\x91\x87";
         tg('sendMessage', [
             'chat_id'      => $chatId,
             'text'         => $welcome,
             'parse_mode'   => 'Markdown',
             'reply_markup' => roleInlineButtons('seller'),
         ]);
-    } elseif ($userRole === 'admin') {
-        $welcome .= "⚙️ *Admin* sifatida kirgansiz.";
+        exit;
+    }
+
+    if ($userRole === 'admin') {
+        $welcome .= "\xE2\x9A\x99\xEF\xB8\x8F *Admin* sifatida kirgansiz.";
         tg('sendMessage', [
             'chat_id'      => $chatId,
             'text'         => $welcome,
@@ -817,25 +819,28 @@ if (preg_match('~^/start(?:@\w+)?~i', $text) || mb_strtolower($text) === 'start'
         ]);
         tg('sendMessage', [
             'chat_id'      => $chatId,
-            'text'         => $hasPhone ? "📍 Joylashuvni yangilash:" : "📱 Telefon va joylashuv:",
+            'text'         => $hasPhone ? "\xF0\x9F\x93\x8D Joylashuvni yangilash:" : "\xF0\x9F\x93\xB1 Telefon va joylashuv:",
             'reply_markup' => mainKeyboard($hasPhone),
         ]);
-    } else {
-        $welcome .= "🍽️ *Iftixor Go* — tez va qulay ovqat buyurtmasi\n\n";
-        if (!$hasPhone) $welcome .= "📱 Avval telefon raqamingizni yuboring.\n\n";
-        $welcome .= "Quyidagi tugmani bosib buyurtma bering 👇";
-        tg('sendMessage', [
-            'chat_id'      => $chatId,
-            'text'         => $welcome,
-            'parse_mode'   => 'Markdown',
-            'reply_markup' => roleInlineButtons('user'),
-        ]);
-        tg('sendMessage', [
-            'chat_id'      => $chatId,
-            'text'         => $hasPhone ? "📍 Joylashuvni yangilash:" : "📱 Telefon va joylashuv:",
-            'reply_markup' => mainKeyboard($hasPhone),
-        ]);
+        exit;
     }
+
+    // oddiy user
+    $welcome .= "\xF0\x9F\x8D\xBD\xEF\xB8\x8F *Iftixor Go* \xE2\x80\x94 tez va qulay ovqat buyurtmasi\n\n";
+    if (!$hasPhone) $welcome .= "\xF0\x9F\x93\xB1 Avval telefon raqamingizni yuboring.\n\n";
+    $welcome .= "Quyidagi tugmani bosib buyurtma bering \xF0\x9F\x91\x87";
+    tg('sendMessage', [
+        'chat_id'      => $chatId,
+        'text'         => $welcome,
+        'parse_mode'   => 'Markdown',
+        'reply_markup' => roleInlineButtons('user'),
+    ]);
+    tg('sendMessage', [
+        'chat_id'      => $chatId,
+        'text'         => $hasPhone ? "\xF0\x9F\x93\x8D Joylashuvni yangilash:" : "\xF0\x9F\x93\xB1 Telefon va joylashuv:",
+        'reply_markup' => mainKeyboard($hasPhone),
+    ]);
+    exit;
 }
 
 elseif ($text === '/admin') {
