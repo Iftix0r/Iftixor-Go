@@ -24,14 +24,12 @@ if (isset($update['callback_query'])) {
     $data = $cb['data'];
     $chatId = $cb['message']['chat']['id'];
     $msgId = $cb['message']['message_id'];
-    
-    // Statusni o'zgartirish
-    if (preg_match('/^rest_order_(new|confirmed|cooking|delivered|cancelled)_(\d+)$/', $data, $m)) {
+
+    // Handle order status updates (existing logic)
+    if (preg_match('/^rest_order_(new|confirmed|cooking|delivered|cancelled)_(\\d+)$/', $data, $m)) {
         $status = $m[1];
         $orderId = (int)$m[2];
-        
         db()->prepare("UPDATE orders SET status=? WHERE id=?")->execute([$status, $orderId]);
-        
         $statusTexts = [
             'new' => '🆕 Yangi',
             'confirmed' => '✅ Tasdiqlangan',
@@ -39,7 +37,6 @@ if (isset($update['callback_query'])) {
             'delivered' => '🚚 Yetkazilgan',
             'cancelled' => '❌ Bekor qilingan'
         ];
-        
         tg_rest('editMessageText', [
             'chat_id' => $chatId,
             'message_id' => $msgId,
@@ -47,10 +44,44 @@ if (isset($update['callback_query'])) {
             'parse_mode' => 'Markdown',
             'reply_markup' => getOrderKeyboard($orderId)
         ]);
+        tg_rest('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
+        exit;
     }
-    
-    tg_rest('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
-    exit;
+
+    // Handle main menu inline actions
+    if (strpos($data, 'action_') === 0) {
+        $action = substr($data, 7); // remove 'action_'
+        switch ($action) {
+            case 'create_restaurant':
+                setState($chatId, 'create_name');
+                tg_rest('sendMessage', ['chat_id' => $chatId, 'text' => "🏢 Do'koningiz nomini kiriting:"]);
+                break;
+            case 'new_orders':
+                // reuse existing logic for new orders
+                $text = '📦 Yangi buyurtmalar';
+                // fall through to normal handling below
+                break;
+            case 'my_products':
+                $text = '🍔 Mahsulotlarim';
+                break;
+            case 'add_product':
+                $text = '➕ Mahsulot qo\'shish';
+                break;
+            case 'report':
+                $text = '📊 Hisobot va Sozlamalar';
+                break;
+            default:
+                $text = '';
+        }
+        // Simulate a normal text message to trigger the existing flow
+        if (!empty($text)) {
+            // temporarily replace $msg['text'] processing
+            $msg['text'] = $text;
+            $text = $text; // for later checks
+        }
+        tg_rest('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
+        // continue processing as if a regular message was received
+    }
 }
 
 if (!isset($update['message'])) exit;
@@ -146,15 +177,17 @@ if (!$rest) {
     
     if ($state === 'create_name') {
         setState($chatId, 'create_phone', ['name' => $text]);
-        $phoneKeyboard = [
+        // Contact request must use a ReplyKeyboardMarkup, not inline
+        $contactKeyboard = [
             ['text' => "📞 Telefon raqamini yuboring", 'request_contact' => true]
         ];
         tg_rest('sendMessage', [
             'chat_id' => $chatId,
             'text' => "📞 Do'kon telefon raqamini yuboring:",
-            'reply_markup' => ['keyboard' => [$phoneKeyboard], 'resize_keyboard' => true, 'one_time_keyboard' => true]
+            'reply_markup' => ['keyboard' => [$contactKeyboard], 'resize_keyboard' => true, 'one_time_keyboard' => true]
         ]);
         exit;
+
     }
     
         if ($state === 'create_phone') {
