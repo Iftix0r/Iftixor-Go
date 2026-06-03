@@ -783,7 +783,11 @@ if ($text === '/start') {
 
     if ($userRole === 'seller') {
         $rest = getSellerRestaurant($chatId);
-        $restName = $rest ? $rest['name'] : 'Restoran';
+        if (!$rest) {
+            sendMsg($chatId, "🚫 Siz sotuvchi rolidasiz, lekin restoran bilan bog'lanmagan.\n\nRestoranni yaratish yoki admin bilan bog'lanish zarur.");
+            exit;
+        }
+        $restName = $rest['name'];
         $welcome .= "🏪 *Sotuvchi paneli* — {$restName}\n\nBuyurtmalar va menyuni boshqaring 👇";
         tg('sendMessage', [
             'chat_id'      => $chatId,
@@ -854,7 +858,7 @@ elseif ($text === '/seller') {
     db()->prepare("UPDATE users SET role='seller', restaurant_id=? WHERE id=?")->execute([$rest['id'], $chatId]);
     tg('sendMessage', [
         'chat_id'      => $chatId,
-        'text'         => "✅ Siz endi *Sotuvchi* sifatida faolsiz!",
+        'text'         => "✅ Siz endi *Sotuvchi* sifatida faolsiz!\n/start yoki quyidagi panelga qaytish orqali sotuvchi panelini oching.",
         'parse_mode'   => 'Markdown',
         'reply_markup' => roleInlineButtons('seller'),
     ]);
