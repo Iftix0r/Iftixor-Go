@@ -68,6 +68,30 @@ if (isset($update['callback_query'])) {
             'parse_mode' => 'Markdown',
         ]);
     }
+
+    if (preg_match('/^taxi_(accept|cancel)_(\d+)$/', $data, $m)) {
+        $rideId    = (int)$m[2];
+        $newStatus = $m[1] === 'accept' ? 'accepted' : 'cancelled';
+        $statusText = $m[1] === 'accept' ? '✅ Taxi qabul qilindi' : '❌ Taxi bekor qilindi';
+
+        db()->prepare("UPDATE taxi_rides SET status=? WHERE id=?")->execute([$newStatus, $rideId]);
+
+        $ride = db()->prepare("SELECT user_id FROM taxi_rides WHERE id=?");
+        $ride->execute([$rideId]);
+        $r = $ride->fetch();
+        if ($r) {
+            $userMsg = $m[1] === 'accept'
+                ? "✅ *#{$rideId} taxi buyurtmangiz qabul qilindi!*\n🚕 Haydovchi yo'lda..."
+                : "❌ *#{$rideId} taxi buyurtmangiz bekor qilindi.*";
+            tg('sendMessage', ['chat_id' => $r['user_id'], 'text' => $userMsg, 'parse_mode' => 'Markdown']);
+        }
+        tg('editMessageText', [
+            'chat_id'    => $chatId,
+            'message_id' => $msgId,
+            'text'       => $cb['message']['text']."\n\n*$statusText* — ".$cb['from']['first_name'],
+            'parse_mode' => 'Markdown',
+        ]);
+    }
     tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]);
     exit;
 }

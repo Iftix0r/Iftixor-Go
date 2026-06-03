@@ -193,21 +193,61 @@
 
   <!-- TAXI PAGE -->
   <div id="page-taxi" class="page">
-    <div class="page-title">🚖 Taxi</div>
-    <div class="section-card" style="margin:0 16px 12px">
-      <div class="input-row">
-        <span class="taxi-dot taxi-dot-from"></span>
-        <input type="text" id="taxiFrom" class="inline-input" placeholder="Qayerdan? *">
+    <div id="taxiActiveBanner" class="taxi-active-banner hidden"></div>
+
+    <div class="taxi-hero">
+      <div class="taxi-hero-icon">🚕</div>
+      <div class="taxi-hero-text">
+        <div class="taxi-hero-title">Taxi chaqirish</div>
+        <div class="taxi-hero-sub">5–10 daqiqada haydovchi yetadi</div>
       </div>
-      <div class="divider"></div>
-      <div class="input-row">
-        <span class="taxi-dot taxi-dot-to"></span>
-        <input type="text" id="taxiTo" class="inline-input" placeholder="Qayerga? *">
+    </div>
+
+    <div class="taxi-route-card">
+      <div class="taxi-route-line"></div>
+      <div class="taxi-route-fields">
+        <div class="taxi-field">
+          <span class="taxi-dot taxi-dot-from"></span>
+          <input type="text" id="taxiFrom" class="taxi-input" placeholder="Qayerdan?" autocomplete="off" oninput="onTaxiRouteChange()">
+        </div>
+        <button type="button" class="taxi-swap-btn" onclick="swapTaxiRoute()" aria-label="Almashtirish">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M7 16V4M7 4L3 8M7 4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="taxi-field">
+          <span class="taxi-dot taxi-dot-to"></span>
+          <input type="text" id="taxiTo" class="taxi-input" placeholder="Qayerga?" autocomplete="off" oninput="onTaxiRouteChange()">
+        </div>
       </div>
-      <div class="divider"></div>
+    </div>
+
+    <div class="taxi-quick-actions">
+      <button type="button" class="taxi-quick-btn" onclick="useTaxiLocation()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M12 21s7-4.5 7-11a7 7 0 10-14 0c0 6.5 7 11 7 11z" stroke="currentColor" stroke-width="1.8"/></svg>
+        Joylashuvim
+      </button>
+      <button type="button" class="taxi-quick-btn" onclick="fillTaxiFromProfile()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+        Profil manzili
+      </button>
+    </div>
+
+    <div id="taxiRecentWrap" class="taxi-recent hidden"></div>
+
+    <div class="section-title" style="padding-top:4px">Mashina turi</div>
+    <div class="taxi-car-types" id="taxiCarTypes"></div>
+
+    <div id="taxiPriceBar" class="taxi-price-bar">
+      <span class="taxi-price-label">Taxminiy narx</span>
+      <span class="taxi-price-val" id="taxiPriceVal">—</span>
+    </div>
+
+    <div class="section-card taxi-contact-card">
       <div class="input-row">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.09 1.18 2 2 0 012.08 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="#8e8e93" stroke-width="1.5"/></svg>
         <input type="tel" id="taxiPhone" class="inline-input" placeholder="Telefon raqam *">
+        <button type="button" class="contact-btn" onclick="requestTaxiPhone()" title="Telefonni to'ldirish">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="10" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+        </button>
       </div>
       <div class="divider"></div>
       <div class="input-row">
@@ -215,24 +255,27 @@
         <input type="text" id="taxiNote" class="inline-input" placeholder="Izoh (ixtiyoriy)">
       </div>
     </div>
-    <div class="taxi-info-bar">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      Haydovchi 5–10 daqiqada yetib keladi
-    </div>
-    <div style="padding:0 16px">
-      <button class="btn-primary" onclick="submitTaxi()">Taxi chaqirish 🚖</button>
+
+    <div class="taxi-submit-wrap">
+      <button type="button" class="btn-primary btn-taxi-submit" id="taxiSubmitBtn" onclick="submitTaxi()">
+        <span>Taxi chaqirish</span>
+        <span class="btn-taxi-price" id="taxiSubmitPrice"></span>
+      </button>
     </div>
   </div>
 
   <div id="page-taxi-success" class="page">
-    <div class="success-wrap">
-      <div class="success-icon">🚖</div>
-      <div class="success-title">Buyurtma qabul qilindi!</div>
+    <div class="success-wrap taxi-success-page">
+      <div class="success-icon taxi-success-pulse">🚕</div>
+      <div class="success-title">Taxi buyurtma qilindi!</div>
+      <div id="taxiSuccessRideId" class="success-id"></div>
       <div id="taxiSuccessInfo" class="taxi-success-info"></div>
-      <div class="success-desc">Haydovchi siz bilan bog'lanadi 📞</div>
-      <div class="success-actions" style="margin-top:24px">
-        <button class="btn-primary" onclick="showTaxiPage('taxi')">Yana taxi chaqirish</button>
-        <button class="btn-secondary" onclick="navTo('service')" style="margin-top:8px">Xizmatlarga</button>
+      <div id="taxiSuccessPrice" class="taxi-success-price"></div>
+      <div id="taxiSuccessStatus" class="success-status-badge status-new">⏳ Haydovchi qidirilmoqda...</div>
+      <div class="success-desc">Operator tez orada bog'lanadi 📞</div>
+      <div class="success-actions" style="margin-top:20px">
+        <button class="btn-primary" onclick="showTaxiPage('orders')">Buyurtmalarim</button>
+        <button class="btn-secondary" onclick="showTaxiPage('taxi')" style="margin-top:8px">Yana taxi chaqirish</button>
       </div>
     </div>
   </div>
@@ -332,6 +375,6 @@
 </div>
 
 <div id="toast" class="toast hidden"></div>
-<script src="app.js?v=2.4"></script>
+<script src="app.js?v=2.5"></script>
 </body>
 </html>

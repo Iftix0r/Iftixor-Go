@@ -51,7 +51,15 @@ switch ($action) {
 
     // ── USER ──
     case 'get_config':
-        resp(['delivery_fee' => DELIVERY_FEE, 'currency' => CURRENCY]);
+        resp([
+            'delivery_fee' => DELIVERY_FEE,
+            'currency' => CURRENCY,
+            'taxi_tariffs' => [
+                'ekonom'  => ['label' => 'Ekonom',  'icon' => '🚗', 'min' => 7000,  'start' => 5000],
+                'comfort' => ['label' => 'Comfort', 'icon' => '🚙', 'min' => 12000, 'start' => 8000],
+                'minivan' => ['label' => 'Minivan', 'icon' => '🚐', 'min' => 18000, 'start' => 12000],
+            ],
+        ]);
         break;
 
     case 'save_user':

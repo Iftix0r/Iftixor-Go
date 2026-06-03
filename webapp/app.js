@@ -4,6 +4,20 @@ let tgUser = null;
 let menu = [], cart = [], activeCat = 0, modalProduct = null, modalQty = 1;
 let deliveryFee = 5000;
 let orderPollTimer = null;
+let taxiPollTimer = null;
+
+const taxiState = {
+  carType: 'ekonom',
+  price: 0,
+  distKm: 0,
+  fromLat: 0,
+  fromLon: 0,
+  tariffs: {
+    ekonom:  { label: 'Ekonom',  icon: '🚗', min: 7000 },
+    comfort: { label: 'Comfort', icon: '🚙', min: 12000 },
+    minivan: { label: 'Minivan', icon: '🚐', min: 18000 },
+  },
+};
 const $ = id => document.getElementById(id);
 
 // ── SOUND ENGINE (Web Audio API, faylsiz) ──
@@ -242,8 +256,7 @@ function selectService(type) {
     setFoodNav('navFoodMenu');
   } else if (type === 'taxi') {
     $('navTaxi').style.display = 'flex';
-    const ph = $('profilePhone')?.value?.trim() || '';
-    if (ph) { const tp = $('taxiPhone'); if (tp) tp.value = ph; }
+    initTaxiPage();
     showPage('taxi');
     setTaxiNav('navTaxiMain');
   }
@@ -275,9 +288,9 @@ function showFoodPage(name) {
 function showTaxiPage(name) {
   const pageMap = { taxi: 'taxi', orders: 'taxi-orders', profile: 'taxi-profile' };
   showPage(pageMap[name] || name);
-  if (name === 'taxi')    setTaxiNav('navTaxiMain');
-  if (name === 'orders') { loadTaxiRideHistory(); setTaxiNav('navTaxiOrders'); }
-  if (name === 'profile'){ loadTaxiProfile(); setTaxiNav('navTaxiProfile'); }
+  if (name === 'taxi')    { initTaxiPage(); setTaxiNav('navTaxiMain'); }
+  if (name === 'orders') { loadTaxiRideHistory(); setTaxiNav('navTaxiOrders'); stopTaxiPolling(); }
+  if (name === 'profile'){ loadTaxiProfile(); setTaxiNav('navTaxiProfile'); stopTaxiPolling(); }
   updateHeader();
 }
 
@@ -368,8 +381,9 @@ function showGuestHeader() {
 
 async function loadConfig() {
   const res = await get('get_config');
-  if (res.success && res.data?.delivery_fee != null) {
-    deliveryFee = Number(res.data.delivery_fee);
+  if (res.success && res.data) {
+    if (res.data.delivery_fee != null) deliveryFee = Number(res.data.delivery_fee);
+    if (res.data.taxi_tariffs) taxiState.tariffs = res.data.taxi_tariffs;
   }
 }
 
@@ -1158,7 +1172,221 @@ async function get(action) {
   } catch { return { success: false }; }
 }
 
-// ── TAXI ORDER ──
+// ── TAXI ──
+function renderTaxiCarTypes() {
+  const wrap = $('taxiCarTypes');
+  if (!wrap) return;
+  wrap.innerHTML = Object.entries(taxiState.tariffs).map(([key, t]) => `
+    <button type="button" class="taxi-car-card${taxiState.carType === key ? ' active' : ''}" onclick="selectTaxiCar('${key}')">
+      <span class="taxi-car-icon">${t.icon || '🚗'}</span>
+      <span class="taxi-car-name">${esc(t.label || key)}</span>
+      <span class="taxi-car-from">dan ${fmt(t.min || 7000)}</span>
+    </button>`).join('');
+}
+
+function selectTaxiCar(type) {
+  taxiState.carType = type;
+  renderTaxiCarTypes();
+  updateTaxiPrice();
+  playSound('tap');
+}
+
+function updateTaxiPriceUI() {
+  const price = taxiState.price || taxiState.tariffs[taxiState.carType]?.min || 0;
+  const val = $('taxiPriceVal');
+  const btnPrice = $('taxiSubmitPrice');
+  const dist = taxiState.distKm > 0 ? ` · ~${taxiState.distKm} km` : '';
+  const label = taxiState.distKm > 0 ? fmt(price) : `dan ${fmt(price)}`;
+  if (val) val.textContent = label + dist;
+  if (btnPrice) btnPrice.textContent = price ? fmt(price) : '';
+}
+
+async function updateTaxiPrice() {
+  const from = $('taxiFrom')?.value.trim();
+  const to   = $('taxiTo')?.value.trim();
+  const min = taxiState.tariffs[taxiState.carType]?.min || 7000;
+
+  if (!from || !to) {
+    taxiState.price = min;
+    taxiState.distKm = 0;
+    updateTaxiPriceUI();
+    return;
+  }
+
+  const res = await post('taxi_price', {
+    car_type: taxiState.carType,
+    from_lat: taxiState.fromLat,
+    from_lon: taxiState.fromLon,
+    to_lat: 0,
+    to_lon: 0,
+  });
+
+  if (res.success && res.data?.prices) {
+    const p = res.data.prices[taxiState.carType];
+    taxiState.price = p?.price || min;
+    taxiState.distKm = res.data.dist_km || 0;
+  } else {
+    taxiState.price = min;
+    taxiState.distKm = 0;
+  }
+  updateTaxiPriceUI();
+}
+
+function onTaxiRouteChange() {
+  clearTimeout(onTaxiRouteChange._t);
+  onTaxiRouteChange._t = setTimeout(updateTaxiPrice, 400);
+}
+
+function swapTaxiRoute() {
+  const f = $('taxiFrom'), t = $('taxiTo');
+  if (!f || !t) return;
+  const tmp = f.value;
+  f.value = t.value;
+  t.value = tmp;
+  playSound('tap');
+  updateTaxiPrice();
+}
+
+function useTaxiLocation() {
+  if (!navigator.geolocation) return toast('Joylashuv qo\'llab-quvvatlanmaydi');
+  toast('Joylashuv olinmoqda...');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      taxiState.fromLat = pos.coords.latitude;
+      taxiState.fromLon = pos.coords.longitude;
+      const inp = $('taxiFrom');
+      if (inp) inp.value = 'Joriy joylashuvim';
+      playSound('success');
+      updateTaxiPrice();
+    },
+    () => toast('Joylashuvga ruxsat bering'),
+    { enableHighAccuracy: true, timeout: 12000 }
+  );
+}
+
+function fillTaxiFromProfile() {
+  if (!tgUser?.id) return toast('Telegram orqali kirish kerak');
+  get(`get_profile&user_id=${tgUser.id}`).then(res => {
+    const a = res.success && res.data?.address ? res.data.address : '';
+    if (!a) return toast('Profilda manzil yo\'q — avval saqlang');
+    const inp = $('taxiFrom');
+    if (inp) inp.value = a;
+    updateTaxiPrice();
+    toast('✓ Manzil qo\'yildi');
+  });
+}
+
+function requestTaxiPhone() {
+  const ph = $('taxiProfilePhone')?.value?.trim() || $('profilePhone')?.value?.trim();
+  if (ph) {
+    const inp = $('taxiPhone');
+    if (inp) inp.value = ph;
+    toast('✓ Telefon to\'ldirildi');
+    return;
+  }
+  requestPhone();
+}
+
+let _taxiRecentItems = [];
+
+function renderTaxiRecent() {
+  const wrap = $('taxiRecentWrap');
+  if (!wrap || !tgUser?.id) return;
+  get(`my_taxi_rides&user_id=${tgUser.id}`).then(res => {
+    if (!res.success || !res.data?.length) {
+      wrap.classList.add('hidden');
+      return;
+    }
+    const seen = new Set();
+    _taxiRecentItems = [];
+    res.data.forEach(r => {
+      if (r.from_address && !seen.has(r.from_address)) {
+        seen.add(r.from_address);
+        _taxiRecentItems.push({ type: 'from', text: r.from_address });
+      }
+      if (r.to_address && !seen.has(r.to_address)) {
+        seen.add(r.to_address);
+        _taxiRecentItems.push({ type: 'to', text: r.to_address });
+      }
+    });
+    if (!_taxiRecentItems.length) { wrap.classList.add('hidden'); return; }
+    wrap.classList.remove('hidden');
+    wrap.innerHTML = `<div class="taxi-recent-label">So'nggi manzillar</div>
+      <div class="taxi-recent-chips">${_taxiRecentItems.slice(0, 6).map((it, i) => `
+        <button type="button" class="taxi-chip" onclick="applyTaxiRecent(${i})">${esc(it.text.length > 28 ? it.text.slice(0, 28) + '…' : it.text)}</button>
+      `).join('')}</div>`;
+  });
+}
+
+function applyTaxiRecent(idx) {
+  const it = _taxiRecentItems[idx];
+  if (!it) return;
+  const inp = it.type === 'from' ? $('taxiFrom') : $('taxiTo');
+  if (inp) inp.value = it.text;
+  updateTaxiPrice();
+}
+
+async function checkTaxiActiveRide() {
+  if (!tgUser?.id) return;
+  const res = await get(`my_taxi_rides&user_id=${tgUser.id}`);
+  const banner = $('taxiActiveBanner');
+  if (!banner) return;
+  const active = res.success && res.data?.find(r => !['completed', 'cancelled'].includes(r.status));
+  if (!active) {
+    banner.classList.add('hidden');
+    return;
+  }
+  const sMap = { new: 'Yangi', accepted: 'Qabul qilindi', on_way: 'Yo\'lda', arrived: 'Yetib keldi' };
+  banner.classList.remove('hidden');
+  banner.innerHTML = `
+    <div class="taxi-active-inner" onclick="showTaxiPage('orders')">
+      <span class="taxi-active-pulse">🚕</span>
+      <div>
+        <div class="taxi-active-title">#${active.id} — ${sMap[active.status] || active.status}</div>
+        <div class="taxi-active-route">${esc(active.from_address)} → ${esc(active.to_address)}</div>
+      </div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </div>`;
+}
+
+function initTaxiPage() {
+  renderTaxiCarTypes();
+  const ph = $('taxiProfilePhone')?.value?.trim() || $('profilePhone')?.value?.trim() || '';
+  if (ph && $('taxiPhone') && !$('taxiPhone').value) $('taxiPhone').value = ph;
+  updateTaxiPrice();
+  renderTaxiRecent();
+  checkTaxiActiveRide();
+  if (!taxiPollTimer) {
+    taxiPollTimer = setInterval(() => {
+      if (currentService !== 'taxi') return;
+      const page = getActivePageId();
+      if (page === 'taxi') checkTaxiActiveRide();
+      if (page === 'taxi-success' && taxiState.lastRideId) pollTaxiRideStatus(taxiState.lastRideId);
+    }, 8000);
+  }
+}
+
+function stopTaxiPolling() { /* interval global, lightweight */ }
+
+async function pollTaxiRideStatus(rideId) {
+  const res = await get(`my_taxi_rides&user_id=${tgUser?.id || 0}`);
+  if (!res.success) return;
+  const ride = res.data?.find(r => r.id == rideId);
+  const el = $('taxiSuccessStatus');
+  if (!ride || !el) return;
+  const sMap = {
+    new: ['⏳ Haydovchi qidirilmoqda...', 'status-new'],
+    accepted: ['✅ Haydovchi qabul qildi', 's-confirmed'],
+    on_way: ['🚕 Haydovchi yo\'lda', 's-cooking'],
+    arrived: ['📍 Haydovchi yetib keldi', 's-cooking'],
+    completed: ['✓ Safar tugallandi', 's-delivered'],
+    cancelled: ['❌ Bekor qilindi', 's-cancelled'],
+  };
+  const [text, cls] = sMap[ride.status] || [ride.status, 's-new'];
+  el.textContent = text;
+  el.className = 'success-status-badge ' + cls;
+}
+
 async function submitTaxi() {
   const from  = $('taxiFrom')?.value.trim();
   const to    = $('taxiTo')?.value.trim();
@@ -1170,8 +1398,12 @@ async function submitTaxi() {
   if (!phone) return toast('Telefon raqam kiriting!');
   if (!/^\+?[\d\s\-\(\)]{7,15}$/.test(phone)) return toast('Telefon raqam noto\'g\'ri!');
 
-  const btn = document.querySelector('#page-taxi .btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Yuborilmoqda...'; }
+  const btn = $('taxiSubmitBtn');
+  const btnHtml = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span>Yuborilmoqda...</span>'; }
+
+  await updateTaxiPrice();
+  const price = taxiState.price || taxiState.tariffs[taxiState.carType]?.min || 0;
 
   const res = await post('taxi_order', {
     user_id: tgUser?.id || 0,
@@ -1179,27 +1411,45 @@ async function submitTaxi() {
     to_address: to,
     phone,
     note,
-    car_type: 'ekonom',
-    price: 0,
+    car_type: taxiState.carType,
+    price,
+    from_lat: taxiState.fromLat,
+    from_lon: taxiState.fromLon,
   });
 
-  if (btn) { btn.disabled = false; btn.textContent = 'Taxi chaqirish 🚖'; }
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = btnHtml || `<span>Taxi chaqirish</span><span class="btn-taxi-price" id="taxiSubmitPrice"></span>`;
+    updateTaxiPriceUI();
+  }
 
   if (res.success) {
     playSound('success');
+    const rideId = res.data?.ride_id || '';
+    taxiState.lastRideId = rideId;
+    const finalPrice = res.data?.price || price;
+    const car = taxiState.tariffs[taxiState.carType];
+
     $('taxiFrom').value = '';
     $('taxiTo').value   = '';
     $('taxiNote').value = '';
-    const rideId = res.data?.ride_id || '';
+    taxiState.fromLat = 0;
+    taxiState.fromLon = 0;
+
+    setText('taxiSuccessRideId', rideId ? '#' + rideId : '');
     const info = $('taxiSuccessInfo');
     if (info) info.innerHTML = `
       <div class="taxi-route">
-        ${rideId ? `<div style="font-size:13px;color:var(--subtext);margin-bottom:8px">Buyurtma #${rideId}</div>` : ''}
         <div class="taxi-route-row"><span class="taxi-dot taxi-dot-from"></span><span>${esc(from)}</span></div>
         <div class="taxi-route-row"><span class="taxi-dot taxi-dot-to"></span><span>${esc(to)}</span></div>
+        ${car ? `<div class="taxi-success-car">${car.icon} ${esc(car.label)}</div>` : ''}
       </div>`;
+    const priceEl = $('taxiSuccessPrice');
+    if (priceEl) priceEl.textContent = finalPrice ? fmt(finalPrice) : '';
+    pollTaxiRideStatus(rideId);
     showPage('taxi-success');
     setTaxiNav('navTaxiMain');
+    checkTaxiActiveRide();
   } else {
     playSound('error');
     const msg = typeof res.data === 'string' ? res.data : 'Xatolik yuz berdi, qayta urinib ko\'ring!';

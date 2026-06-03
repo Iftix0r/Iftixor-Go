@@ -1,0 +1,4 @@
+{
+  "summary": "Improved taxi section: new UI with hero, route card, swap addresses, geolocation and profile address quick actions, recent addresses chips, car type selector (Ekonom/Comfort/Minivan) with estimated pricing via taxi_price API, active ride banner, enhanced success page with live status polling. submitTaxi now sends car_type and price. bot.php added taxi_accept/taxi_cancel callbacks. get_config includes taxi_tariffs.",
+  "current_status": "Taxi module significantly upgraded in webapp and bot. Deploy webapp (index.html, app.js v2.5, style.css), api.php, bot.php to production."
+}
