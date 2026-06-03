@@ -132,41 +132,135 @@ function fmt(n) {
 // ── SERVICE SELECTION ──
 let currentService = null;
 
+const SERVICE_LABELS = {
+  food: { title: 'Menyu', sub: 'Ovqatlar' },
+  taxi: { title: 'Taxi', sub: 'Taxi xizmati' },
+};
+
+function toggleServiceMenu() {
+  const d = $('serviceDrawer');
+  if (!d) return;
+  d.classList.toggle('hidden');
+  document.body.style.overflow = d.classList.contains('hidden') ? '' : 'hidden';
+}
+
+function closeServiceMenu() {
+  const d = $('serviceDrawer');
+  if (d) d.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function pickServiceFromMenu(type) {
+  closeServiceMenu();
+  selectService(type);
+}
+
+function getActivePageId() {
+  return document.querySelector('.page.active')?.id?.replace('page-', '') || 'service';
+}
+
+function updateHeader() {
+  const hamburger = $('btnHamburger');
+  const back = $('btnBack');
+  const cartBtn = $('cartBtn');
+  const sub = $('headerSub');
+  const name = $('headerName');
+  const page = getActivePageId();
+  const onHub = !currentService || page === 'service';
+
+  if (hamburger) hamburger.classList.toggle('hidden', !onHub);
+  if (back) back.classList.toggle('hidden', onHub);
+
+  const app = $('app');
+  if (app) app.classList.toggle('mode-hub', onHub);
+
+  if (onHub) {
+    if (cartBtn) cartBtn.classList.add('hidden');
+    if (name) name.textContent = 'Iftixor Go';
+    if (sub) sub.textContent = 'Xizmatlar';
+    if (tg?.BackButton) tg.BackButton.hide();
+    return;
+  }
+
+  if (currentService === 'food') {
+    const titles = {
+      home: { t: 'Menyu', s: 'Ovqatlar' },
+      cart: { t: 'Savat', s: 'Ovqatlar' },
+      profile: { t: 'Profil', s: 'Ovqatlar' },
+      checkout: { t: 'Buyurtma', s: 'Ovqatlar' },
+      success: { t: 'Tayyor', s: 'Ovqatlar' },
+    };
+    const lbl = titles[page] || SERVICE_LABELS.food;
+    if (name) name.textContent = lbl.t;
+    if (sub) sub.textContent = lbl.s;
+    const showCart = page === 'home' || page === 'cart';
+    if (cartBtn) cartBtn.classList.toggle('hidden', !showCart);
+    if (tg?.BackButton) {
+      if (page === 'checkout' || page === 'success') tg.BackButton.show();
+      else tg.BackButton.hide();
+    }
+  } else if (currentService === 'taxi') {
+    const titles = {
+      taxi: { t: 'Taxi', s: 'Taxi xizmati' },
+      profile: { t: 'Profil', s: 'Taxi' },
+      'taxi-success': { t: 'Qabul qilindi', s: 'Taxi' },
+    };
+    const lbl = titles[page] || SERVICE_LABELS.taxi;
+    if (name) name.textContent = lbl.t;
+    if (sub) sub.textContent = lbl.s;
+    if (cartBtn) cartBtn.classList.add('hidden');
+    if (tg?.BackButton) {
+      if (page === 'taxi-success') tg.BackButton.show();
+      else tg.BackButton.hide();
+    }
+  }
+}
+
+function goBack() {
+  playSound('tap');
+  const page = getActivePageId();
+  if (currentService === 'food') {
+    if (page === 'checkout') { showFoodPage('cart'); return; }
+    if (page === 'success') { navTo('service'); return; }
+    navTo('service');
+    return;
+  }
+  if (currentService === 'taxi') {
+    if (page === 'taxi-success') { showTaxiPage('taxi'); return; }
+    navTo('service');
+  }
+}
+
 function selectService(type) {
+  closeServiceMenu();
   currentService = type;
   showAllNavs('none');
-  const cartBtn = $('cartBtn');
   if (type === 'food') {
     $('navFood').style.display = 'flex';
-    if (cartBtn) cartBtn.style.display = 'flex';
     showPage('home');
     setFoodNav('navFoodMenu');
   } else if (type === 'taxi') {
     $('navTaxi').style.display = 'flex';
-    if (cartBtn) cartBtn.style.display = 'none';
     const ph = $('profilePhone')?.value?.trim() || '';
     if (ph) { const tp = $('taxiPhone'); if (tp) tp.value = ph; }
     showPage('taxi');
     setTaxiNav('navTaxiMain');
   }
+  updateHeader();
 }
 
 function navTo(name) {
   if (name === 'service') {
     showAllNavs('none');
-    $('navHome').style.display = 'flex';
-    const cartBtn = $('cartBtn');
-    if (cartBtn) cartBtn.style.display = 'none';
     showPage('service');
     currentService = null;
+    updateHeader();
     return;
   }
   showPage(name);
   if (name === 'profile') { loadProfile(); loadOrderHistory(); }
   if (name === 'cart') renderCart();
-  if (name !== 'checkout' && name !== 'success' && name !== 'taxi-success') {
-    if (tg?.BackButton) tg.BackButton.hide();
-  }
+  updateHeader();
 }
 
 function showFoodPage(name) {
@@ -174,12 +268,14 @@ function showFoodPage(name) {
   if (name === 'home')    setFoodNav('navFoodMenu');
   if (name === 'cart')   { renderCart(); setFoodNav('navFoodCart'); }
   if (name === 'profile'){ loadProfile(); loadOrderHistory(); setFoodNav('navFoodProfile'); }
+  updateHeader();
 }
 
 function showTaxiPage(name) {
   showPage(name);
   if (name === 'taxi')   setTaxiNav('navTaxiMain');
   if (name === 'profile'){ loadProfile(); loadOrderHistory(); setTaxiNav('navTaxiProfile'); }
+  updateHeader();
 }
 
 function setFoodNav(activeId) {
@@ -197,7 +293,7 @@ function setTaxiNav(activeId) {
 }
 
 function showAllNavs(val) {
-  ['navHome','navFood','navTaxi'].forEach(id => {
+  ['navFood','navTaxi'].forEach(id => {
     const el = $(id); if (el) el.style.display = val;
   });
 }
@@ -231,10 +327,9 @@ async function init() {
     renderCart();
     updateCartBadge();
     showPage('service');
-    $('navHome').style.display = 'flex';
-    const cartBtn = $('cartBtn');
-    if (cartBtn) cartBtn.style.display = 'none';
-    if (tg?.BackButton) tg.BackButton.hide();
+    showAllNavs('none');
+    updateGreeting();
+    updateHeader();
   } catch(e) {
     console.warn('Init error:', e);
     const hName = $('headerName');
@@ -247,8 +342,7 @@ async function init() {
 
 // ── USER ──
 async function saveUser() {
-  const el = $('headerName');
-  if (el) el.textContent = tgUser.first_name || 'Foydalanuvchi';
+  updateGreeting();
   if (tgUser.photo_url) {
     const av = $('headerAvatar');
     if (av) av.innerHTML = `<img src="${tgUser.photo_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
@@ -256,9 +350,15 @@ async function saveUser() {
   await post('save_user', { user: tgUser });
 }
 
+function updateGreeting() {
+  const el = $('servicesGreet');
+  if (!el) return;
+  const n = tgUser?.first_name || 'Mehmon';
+  el.textContent = `Assalomu alaykum, ${n} 👋`;
+}
+
 function showGuestHeader() {
-  const el = $('headerName');
-  if (el) el.textContent = 'Mehmon';
+  updateGreeting();
   const warn = $('guestWarning');
   if (warn) warn.style.display = 'flex';
 }
@@ -787,7 +887,7 @@ function showOrderSuccess(orderId, total) {
           📋 Buyurtmalarimni ko'rish
         </button>
         <button class="btn-secondary" onclick="navTo('service')">
-          Menyuga qaytish
+          Xizmatlarga
         </button>
       </div>`;
   }
@@ -902,6 +1002,7 @@ function showPage(name) {
   if (el) el.classList.add('active');
   window.scrollTo(0, 0);
   if (name !== 'success') stopOrderPolling();
+  updateHeader();
 }
 
 
@@ -1000,18 +1101,7 @@ async function submitTaxi() {
 
 // ── TELEGRAM BACK BUTTON ──
 if (tg?.BackButton) {
-  tg.BackButton.onClick(() => {
-    const active = document.querySelector('.page.active');
-    if (active?.id === 'page-checkout') {
-      showFoodPage('cart');
-    } else if (active?.id === 'page-success') {
-      navTo('service');
-    } else if (active?.id === 'page-taxi-success') {
-      showTaxiPage('taxi');
-    } else {
-      tg.BackButton.hide();
-    }
-  });
+  tg.BackButton.onClick(() => goBack());
 }
 
 // ── TELEGRAM THEME ──

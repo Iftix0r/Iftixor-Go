@@ -26,38 +26,71 @@
 </div>
 
 <div id="app" class="hidden">
-  <header class="header">
+  <header class="header" id="appHeader">
     <div class="header-left">
-      <div class="header-avatar" id="headerAvatar">
-        <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#ffe5db"/><circle cx="16" cy="13" r="5" fill="#ff6b35"/><path d="M6 26c0-5.5 4.5-9 10-9s10 3.5 10 9" stroke="#ff6b35" stroke-width="2" fill="none"/></svg>
+      <button type="button" class="header-icon-btn" id="btnHamburger" onclick="toggleServiceMenu()" aria-label="Xizmatlar menyusi">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" class="header-icon-btn hidden" id="btnBack" onclick="goBack()" aria-label="Orqaga">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><polyline points="15 18 9 12 15 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="header-avatar hidden" id="headerAvatarWrap">
+        <div class="header-avatar" id="headerAvatar">
+          <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#ffe5db"/><circle cx="16" cy="13" r="5" fill="#ff6b35"/><path d="M6 26c0-5.5 4.5-9 10-9s10 3.5 10 9" stroke="#ff6b35" stroke-width="2" fill="none"/></svg>
+        </div>
       </div>
-      <div>
-        <div class="header-name" id="headerName">Yuklanmoqda...</div>
-        <div class="header-sub">Assalomu alaykum 👋</div>
+      <div class="header-titles">
+        <div class="header-name" id="headerName">Iftixor Go</div>
+        <div class="header-sub" id="headerSub">Xizmatlar</div>
       </div>
     </div>
-    <div class="cart-btn" id="cartBtn" onclick="showFoodPage('cart')">
+    <div class="cart-btn hidden" id="cartBtn" onclick="showFoodPage('cart')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" stroke="white" stroke-width="2" stroke-linejoin="round"/><line x1="3" y1="6" x2="21" y2="6" stroke="white" stroke-width="2"/><path d="M16 10a4 4 0 01-8 0" stroke="white" stroke-width="2"/></svg>
       <span class="cart-badge" id="cartBadge">0</span>
     </div>
   </header>
 
-  <!-- SERVICE SELECTION -->
+  <!-- Xizmatlar menyusi (hamburger) -->
+  <div id="serviceDrawer" class="service-drawer hidden">
+    <div class="service-drawer-overlay" onclick="closeServiceMenu()"></div>
+    <nav class="service-drawer-panel">
+      <div class="drawer-head">
+        <span class="drawer-title">Xizmatlar</span>
+        <button type="button" class="drawer-close" onclick="closeServiceMenu()" aria-label="Yopish">✕</button>
+      </div>
+      <button type="button" class="drawer-item" onclick="pickServiceFromMenu('food')">
+        <span class="drawer-item-icon">🍽️</span>
+        <span class="drawer-item-text">
+          <span class="drawer-item-name">Ovqatlar</span>
+          <span class="drawer-item-desc">Menyu va yetkazib berish</span>
+        </span>
+        <svg class="drawer-item-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" class="drawer-item" onclick="pickServiceFromMenu('taxi')">
+        <span class="drawer-item-icon">🚖</span>
+        <span class="drawer-item-text">
+          <span class="drawer-item-name">Taxi</span>
+          <span class="drawer-item-desc">Tez taxi buyurtmasi</span>
+        </span>
+        <svg class="drawer-item-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none"><polyline points="9 18 15 12 9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+  </div>
+
+  <!-- BOSH SAHIFA: xizmatlar (Google grid) -->
   <div id="page-service" class="page active">
-    <div class="service-select-wrap">
-      <div class="service-title">Xizmatni tanlang</div>
-      <div class="service-subtitle">Bugun nima kerak?</div>
-      <div class="service-cards">
-        <div class="service-card" onclick="selectService('food')">
-          <div class="service-card-icon">🍽️</div>
-          <div class="service-card-name">Ovqatlar</div>
-          <div class="service-card-desc">Restoran menyusi va yetkazib berish</div>
-        </div>
-        <div class="service-card" onclick="selectService('taxi')">
-          <div class="service-card-icon">🚖</div>
-          <div class="service-card-name">Taxi</div>
-          <div class="service-card-desc">Tez va qulay taxi buyurtmasi</div>
-        </div>
+    <div class="services-hub">
+      <p class="services-greet" id="servicesGreet">Assalomu alaykum 👋</p>
+      <h2 class="services-hub-title">Xizmatlar</h2>
+      <div class="services-grid">
+        <button type="button" class="service-tile" onclick="selectService('food')">
+          <span class="service-tile-icon">🍽️</span>
+          <span class="service-tile-name">Ovqatlar</span>
+        </button>
+        <button type="button" class="service-tile" onclick="selectService('taxi')">
+          <span class="service-tile-icon">🚖</span>
+          <span class="service-tile-name">Taxi</span>
+        </button>
       </div>
     </div>
   </div>
@@ -152,7 +185,6 @@
     </div>
     <div style="padding:0 16px">
       <button class="btn-primary" onclick="submitTaxi()">Taxi chaqirish 🚖</button>
-      <button class="btn-secondary" onclick="navTo('service')" style="margin-top:8px">Orqaga</button>
     </div>
   </div>
 
@@ -164,7 +196,7 @@
       <div class="success-desc">Haydovchi siz bilan bog'lanadi 📞</div>
       <div class="success-actions" style="margin-top:24px">
         <button class="btn-primary" onclick="showTaxiPage('taxi')">Yana taxi chaqirish</button>
-        <button class="btn-secondary" onclick="navTo('service')" style="margin-top:8px">Bosh sahifaga</button>
+        <button class="btn-secondary" onclick="navTo('service')" style="margin-top:8px">Xizmatlarga</button>
       </div>
     </div>
   </div>
@@ -202,18 +234,6 @@
     </div>
   </div>
 
-  <!-- NAV: Bosh sahifa -->
-  <nav class="bottom-nav" id="navHome">
-    <div class="nav-item active" onclick="selectService('food')">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 8h1a4 4 0 010 8h-1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" stroke="currentColor" stroke-width="2"/></svg>
-      <span>Ovqatlar</span>
-    </div>
-    <div class="nav-item" onclick="selectService('taxi')">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="22" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M5 9V7a3 3 0 013-3h8a3 3 0 013 3v2" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="16" r="1.5" fill="currentColor"/><circle cx="17" cy="16" r="1.5" fill="currentColor"/></svg>
-      <span>Taxi</span>
-    </div>
-  </nav>
-
   <!-- NAV: Ovqatlar -->
   <nav class="bottom-nav" id="navFood" style="display:none">
     <div class="nav-item active" onclick="showFoodPage('home')" id="navFoodMenu">
@@ -231,10 +251,6 @@
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
       <span>Profil</span>
     </div>
-    <div class="nav-item" onclick="navTo('service')">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-      <span>Bosh</span>
-    </div>
   </nav>
 
   <!-- NAV: Taxi -->
@@ -246,10 +262,6 @@
     <div class="nav-item" onclick="showTaxiPage('profile')" id="navTaxiProfile">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
       <span>Profil</span>
-    </div>
-    <div class="nav-item" onclick="navTo('service')">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-      <span>Bosh</span>
     </div>
   </nav>
 </div>
@@ -280,6 +292,6 @@
 </div>
 
 <div id="toast" class="toast hidden"></div>
-<script src="app.js?v=2.2"></script>
+<script src="app.js?v=2.3"></script>
 </body>
 </html>

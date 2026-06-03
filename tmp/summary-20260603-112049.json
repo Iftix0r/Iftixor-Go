@@ -1,0 +1,4 @@
+{
+  "summary": "User requested Google-style service hub on web app entry: hamburger menu drawer with Ovqatlar and Taxi, compact 2-column service grid on home, no Bosh button in food/taxi bottom nav. Implemented header with hamburger/back icons, service drawer, services hub grid, goBack() to return to services, updateHeader() for dynamic titles and cart visibility, removed navHome and Bosh nav items.",
+  "current_status": "Web app UX updated: entry shows Xizmatlar hub with hamburger menu; food/taxi sections use top back arrow instead of Bosh tab. Deploy webapp/index.html, app.js?v=2.3, style.css to server."
+}
