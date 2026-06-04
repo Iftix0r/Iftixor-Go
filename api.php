@@ -428,7 +428,7 @@ switch ($action) {
         $uid  = $input['user_id'] ?? 0;
         $role = $input['role'] ?? 'user';
         if (!$uid) resp('No ID', false);
-        if (!in_array($role, ['user','seller','admin'], true)) resp('Invalid role', false);
+        if (!in_array($role, ['user','seller','admin','driver'], true)) resp('Invalid role', false);
         $rid = !empty($input['restaurant_id']) ? (int)$input['restaurant_id'] : null;
         if ($role === 'seller' && !$rid) resp('Sotuvchi uchun restoran tanlang', false);
         if ($role === 'seller') {
@@ -438,7 +438,7 @@ switch ($action) {
             db()->prepare("UPDATE users SET role=?, restaurant_id=NULL WHERE id=?")->execute([$role, $uid]);
         }
         // Foydalanuvchiga xabar
-        $roleNames = ['user' => '👤 Oddiy foydalanuvchi', 'seller' => '🏪 Sotuvchi', 'admin' => '⚙️ Admin'];
+        $roleNames = ['user' => '👤 Oddiy foydalanuvchi', 'seller' => '🏪 Sotuvchi', 'admin' => '⚙️ Admin', 'driver' => '🚕 Haydovchi'];
         $roleName  = $roleNames[$role] ?? $role;
         tgReq('sendMessage', [
             'chat_id' => $uid,
@@ -955,6 +955,20 @@ switch ($action) {
                     ['text' => '❌ Bekor',   'callback_data' => "taxi_cancel_{$rideId}"],
                 ]]]
             ]);
+
+            // Barcha haydovchilarga xabar yuborish
+            $drivers = db()->query("SELECT id FROM users WHERE role='driver'")->fetchAll();
+            foreach ($drivers as $drv) {
+                tgReq('sendMessage', [
+                    'chat_id'    => $drv['id'],
+                    'text'       => $msg,
+                    'parse_mode' => 'Markdown',
+                    'reply_markup' => ['inline_keyboard' => [[
+                        ['text' => '✅ Qabul olish', 'callback_data' => "driver_accept_{$rideId}"],
+                    ]]]
+                ]);
+            }
+
             resp(['ride_id' => $rideId, 'price' => $price]);
         } catch (Throwable $e) {
             resp('Taxi buyurtma saqlanmadi: ' . $e->getMessage(), false);

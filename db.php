@@ -24,7 +24,7 @@ function initDB(): void {
             phone VARCHAR(20),
             address TEXT,
             language_code VARCHAR(10),
-            role ENUM('user','seller','admin') DEFAULT 'user',
+            role ENUM('user','seller','admin','driver') DEFAULT 'user',
             restaurant_id INT DEFAULT NULL,
             is_blocked TINYINT(1) DEFAULT 0,
             block_reason VARCHAR(255),
@@ -87,6 +87,7 @@ function initDB(): void {
         CREATE TABLE IF NOT EXISTS taxi_rides (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT NOT NULL,
+            driver_id BIGINT DEFAULT NULL,
             phone VARCHAR(20),
             from_address TEXT NOT NULL,
             to_address TEXT NOT NULL,
@@ -211,6 +212,7 @@ try {
         CREATE TABLE IF NOT EXISTS taxi_rides (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT NOT NULL,
+            driver_id BIGINT DEFAULT NULL,
             phone VARCHAR(20),
             from_address TEXT NOT NULL,
             to_address TEXT NOT NULL,
@@ -225,4 +227,17 @@ try {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ");
+} catch (Exception $e) { /* ignore */ }
+
+// driver_id ustuni yo'q bo'lsa qo'shish
+try {
+    $dcols = db()->query("SHOW COLUMNS FROM taxi_rides LIKE 'driver_id'")->fetchAll();
+    if (empty($dcols)) {
+        db()->exec("ALTER TABLE taxi_rides ADD COLUMN driver_id BIGINT DEFAULT NULL");
+    }
+} catch (Exception $e) { /* ignore */ }
+
+// driver role qo'shish
+try {
+    db()->exec("ALTER TABLE users MODIFY COLUMN role ENUM('user','seller','admin','driver') DEFAULT 'user'");
 } catch (Exception $e) { /* ignore */ }

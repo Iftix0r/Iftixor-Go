@@ -17,7 +17,7 @@ require_once 'db.php';
 try {
     $cols = db()->query("SHOW COLUMNS FROM users")->fetchAll(PDO::FETCH_COLUMN);
     if (!in_array('role', $cols)) {
-        db()->exec("ALTER TABLE users ADD COLUMN role ENUM('user','seller','admin') DEFAULT 'user'");
+        db()->exec("ALTER TABLE users ADD COLUMN role ENUM('user','seller','admin','driver') DEFAULT 'user'");
     }
     if (!in_array('restaurant_id', $cols)) {
         db()->exec("ALTER TABLE users ADD COLUMN restaurant_id INT DEFAULT NULL");
@@ -66,6 +66,13 @@ function roleInlineButtons(string $role): array {
              ['text' => '📊 Statistika',      'callback_data' => 'seller_stats']],
             [['text' => '🍽️ Menyu',           'callback_data' => 'seller_menu']],
             [['text' => '⚙️ Sozlamalar',       'callback_data' => 'seller_settings']],
+        ]];
+    }
+    if ($role === 'driver') {
+        return ['inline_keyboard' => [
+            [['text' => '🚕 Faol zakazlar',   'callback_data' => 'driver_active'],
+             ['text' => '📋 Tarixim',         'callback_data' => 'driver_history']],
+            [['text' => '👤 Profil',           'callback_data' => 'driver_profile']],
         ]];
     }
     if ($role === 'admin') {
@@ -277,6 +284,166 @@ if (isset($update['callback_query'])) {
             'text' => $cb['message']['text']."\n\n*{$statusText}* — ".$cb['from']['first_name'],
             'parse_mode' => 'Markdown',
         ]);
+    }
+
+
+    // ── HAYDOVCHI: faol zakazlar ──
+    elseif ($data === 'driver_active') {
+        $role = getUserRole($fromId);
+        if ($role !== 'driver') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $rides = db()->query("SELECT * FROM taxi_rides WHERE status='new' ORDER BY id DESC LIMIT 10")->fetchAll();
+        $rows = [];
+        foreach ($rides as $r) {
+            $typeIcons = ['ekonom' => '🚗', 'comfort' => '🚙', 'minivan' => '🚐'];
+            $icon = $typeIcons[$r['car_type']] ?? '🚕';
+            $rows[] = [['text' => "{$icon} #{$r['id']} — ".number_format($r['price'])." so'm", 'callback_data' => 'driver_ride_'.$r['id']]];
+        }
+        $rows[] = [['text' => '🔄 Yangilash', 'callback_data' => 'driver_active'], ['text' => '🔙 Orqaga', 'callback_data' => 'driver_back']];
+        $txt = empty($rides) ? "🚕 Hozircha faol zakaz yo'q.\nKutib turing..." : "🚕 *Faol zakazlar (".count($rides)." ta):*";
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $txt, 'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => $rows]]);
+    }
+
+    // ── HAYDOVCHI: zakaz detail ──
+    elseif (preg_match('/^driver_ride_(\d+)$/', $data, $m)) {
+        $role = getUserRole($fromId);
+        if ($role !== 'driver') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $rideId = (int)$m[1];
+        $rq = db()->prepare("SELECT tr.*, u.first_name, u.last_name, u.username FROM taxi_rides tr LEFT JOIN users u ON tr.user_id=u.id WHERE tr.id=?");
+        $rq->execute([$rideId]); $rq = $rq->fetch();
+        if (!$rq) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Topilmadi']); exit; }
+        $typeLabels = ['ekonom' => '🚗 Ekonom', 'comfort' => '🚙 Comfort', 'minivan' => '🚐 Minivan'];
+        $fromMaps = $rq['from_lat'] ? "https://maps.google.com/?q={$rq['from_lat']},{$rq['from_lon']}" : '';
+        $toMaps   = $rq['to_lat']   ? "https://maps.google.com/?q={$rq['to_lat']},{$rq['to_lon']}"     : '';
+        $nm  = trim(($rq['first_name']??'').' '.($rq['last_name']??''));
+        $un  = $rq['username'] ? "@{$rq['username']}" : '';
+        $dtxt = "🚕 *Taxi #{$rideId}*\n\n👤 {$nm} {$un}\n📞 {$rq['phone']}\n"
+              . ($typeLabels[$rq['car_type']] ?? $rq['car_type'])."\n\n"
+              . "📍 *Qayerdan:* {$rq['from_address']}" . ($fromMaps ? " [🗺]({$fromMaps})" : '') . "\n"
+              . "🏁 *Qayerga:* {$rq['to_address']}"   . ($toMaps   ? " [🗺]({$toMaps})"   : '') . "\n\n"
+              . "💰 *Narx:* ".number_format($rq['price'])." so'm\n"
+              . ($rq['note'] ? "📝 {$rq['note']}\n" : '')
+              . "📊 Status: *{$rq['status']}*";
+        $keyboard = [];
+        if ($rq['status'] === 'new') {
+            $keyboard[] = [['text' => '✅ Qabul olish', 'callback_data' => 'driver_accept_'.$rideId]];
+        } elseif ((int)$rq['driver_id'] === $fromId) {
+            if ($rq['status'] === 'accepted') $keyboard[] = [['text' => "🚕 Yo'lga chiqdim", 'callback_data' => 'driver_onway_'.$rideId]];
+            if ($rq['status'] === 'on_way')   $keyboard[] = [['text' => '📍 Yetib keldim',   'callback_data' => 'driver_arrived_'.$rideId]];
+            if ($rq['status'] === 'arrived')  $keyboard[] = [['text' => '✅ Yakunlash',        'callback_data' => 'driver_done_'.$rideId]];
+        }
+        $keyboard[] = [['text' => '🔙 Orqaga', 'callback_data' => 'driver_active']];
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $dtxt, 'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => $keyboard]]);
+    }
+
+    // ── HAYDOVCHI: qabul olish ──
+    elseif (preg_match('/^driver_accept_(\d+)$/', $data, $m)) {
+        $role = getUserRole($fromId);
+        if ($role !== 'driver') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $rideId = (int)$m[1];
+        $rq = db()->prepare("SELECT * FROM taxi_rides WHERE id=? AND status='new'");
+        $rq->execute([$rideId]); $rq = $rq->fetch();
+        if (!$rq) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Bu zakaz allaqachon qabul qilingan!']); exit; }
+        db()->prepare("UPDATE taxi_rides SET status='accepted', driver_id=? WHERE id=? AND status='new'")->execute([$fromId, $rideId]);
+        $affected = db()->query("SELECT ROW_COUNT()")->fetchColumn();
+        if (!$affected) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => 'Boshqa haydovchi oldi!']); exit; }
+        $drow = db()->prepare("SELECT first_name, last_name, username FROM users WHERE id=?");
+        $drow->execute([$fromId]); $drow = $drow->fetch();
+        $dName  = trim(($drow['first_name']??'').' '.($drow['last_name']??''));
+        $dUname = $drow['username'] ? " (@{$drow['username']})" : '';
+        tg('sendMessage', ['chat_id' => $rq['user_id'],
+            'text' => "✅ *#{$rideId} taxi buyurtmangiz qabul qilindi!*\n\n🚕 Haydovchi: *{$dName}*{$dUname}\nTez orada yetib keladi!",
+            'parse_mode' => 'Markdown']);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => '✅ Zakaz qabul olindi!']);
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "🚕 *Taxi #{$rideId}* — ✅ QABUL OLINDI\n\n📍 {$rq['from_address']}\n🏁 {$rq['to_address']}\n💰 ".number_format($rq['price'])." so'm",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [
+                [["text" => "🚕 Yo'lga chiqdim", 'callback_data' => 'driver_onway_'.$rideId]],
+                [['text' => '🔙 Zakazlar', 'callback_data' => 'driver_active']],
+            ]]]);
+        exit;
+    }
+
+    // ── HAYDOVCHI: status yangilash ──
+    elseif (preg_match('/^driver_(onway|arrived|done)_(\d+)$/', $data, $m)) {
+        $role = getUserRole($fromId);
+        if ($role !== 'driver') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $action = $m[1]; $rideId = (int)$m[2];
+        $rq = db()->prepare("SELECT * FROM taxi_rides WHERE id=? AND driver_id=?");
+        $rq->execute([$rideId, $fromId]); $rq = $rq->fetch();
+        if (!$rq) { tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => "Ruxsat yo'q"]); exit; }
+        $statusMap = ['onway' => 'on_way', 'arrived' => 'arrived', 'done' => 'completed'];
+        $newStatus = $statusMap[$action];
+        db()->prepare("UPDATE taxi_rides SET status=? WHERE id=?")->execute([$newStatus, $rideId]);
+        $userMsgs = [
+            'on_way'    => "🚕 *#{$rideId} Haydovchi sizga qarab kelyapti!*",
+            'arrived'   => "📍 *#{$rideId} Haydovchi yetib keldi!*\nChiqib keling 🚗",
+            'completed' => "✅ *#{$rideId} Safaringiz yakunlandi!*\nRahmat 😊",
+        ];
+        if (isset($userMsgs[$newStatus]))
+            tg('sendMessage', ['chat_id' => $rq['user_id'], 'text' => $userMsgs[$newStatus], 'parse_mode' => 'Markdown']);
+        tg('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => '✅ Yangilandi']);
+        $nextBtns = [
+            'on_way'    => [["text" => '📍 Yetib keldim',  'callback_data' => 'driver_arrived_'.$rideId]],
+            'arrived'   => [["text" => '✅ Yakunlash',      'callback_data' => 'driver_done_'.$rideId]],
+            'completed' => [["text" => '🔙 Zakazlar',       'callback_data' => 'driver_active']],
+        ];
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "🚕 *Taxi #{$rideId}* — *{$newStatus}*",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [$nextBtns[$newStatus] ?? [['text' => '🔙 Zakazlar', 'callback_data' => 'driver_active']]]]]);
+        exit;
+    }
+
+    // ── HAYDOVCHI: tarix ──
+    elseif ($data === 'driver_history') {
+        $role = getUserRole($fromId);
+        if ($role !== 'driver') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $rides = db()->prepare("SELECT * FROM taxi_rides WHERE driver_id=? ORDER BY id DESC LIMIT 10");
+        $rides->execute([$fromId]); $rides = $rides->fetchAll();
+        $statusIcons = ['new'=>'🆕','accepted'=>'✅','on_way'=>'🚕','arrived'=>'📍','completed'=>'🏁','cancelled'=>'❌'];
+        $rows = [];
+        foreach ($rides as $r) {
+            $icon = $statusIcons[$r['status']] ?? '❓';
+            $rows[] = [['text' => "{$icon} #{$r['id']} — ".number_format($r['price'])." so'm", 'callback_data' => 'driver_ride_'.$r['id']]];
+        }
+        $rows[] = [['text' => '🔙 Orqaga', 'callback_data' => 'driver_back']];
+        $htxt = empty($rides) ? "📋 Hozircha tarixingiz yo'q." : "📋 *Tarixim (".count($rides)." ta):*";
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $htxt, 'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => $rows]]);
+    }
+
+    // ── HAYDOVCHI: profil ──
+    elseif ($data === 'driver_profile') {
+        $role = getUserRole($fromId);
+        if ($role !== 'driver') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        $total = db()->prepare("SELECT COUNT(*) cnt, COALESCE(SUM(price),0) rev FROM taxi_rides WHERE driver_id=? AND status='completed'");
+        $total->execute([$fromId]); $total = $total->fetch();
+        $u = db()->prepare("SELECT * FROM users WHERE id=?");
+        $u->execute([$fromId]); $u = $u->fetch();
+        $dname = trim(($u['first_name']??'').' '.($u['last_name']??''));
+        $ptxt = "👤 *Haydovchi profili*\n\n🆔 ID: `{$fromId}`\n👤 *{$dname}*\n"
+              . ($u['username'] ? "📌 @{$u['username']}\n" : '')
+              . ($u['phone'] ? "📞 {$u['phone']}\n" : '')
+              . "\n📊 *Statistika:*\n🏁 Yakunlangan: {$total['cnt']} ta\n💰 Jami daromad: ".number_format($total['rev'])." so'm";
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => $ptxt, 'parse_mode' => 'Markdown',
+            'reply_markup' => ['inline_keyboard' => [[['text' => '🔙 Orqaga', 'callback_data' => 'driver_back']]]]]);
+    }
+
+    // ── HAYDOVCHI: orqaga ──
+    elseif ($data === 'driver_back') {
+        $role = getUserRole($fromId);
+        if ($role !== 'driver') { tg('answerCallbackQuery', ['callback_query_id' => $cb['id']]); exit; }
+        tg('editMessageText', ['chat_id' => $fromId, 'message_id' => $msgId,
+            'text' => "🚕 *Haydovchi Panel*\n\nNimani ko'rishni xohlaysiz?",
+            'parse_mode' => 'Markdown',
+            'reply_markup' => roleInlineButtons('driver')]);
     }
 
     // ── SOTUVCHI: bosh menu ──
@@ -862,6 +1029,17 @@ if (preg_match('~^/start(?:@\w+)?~i', $text) || mb_strtolower($text) === 'start'
         exit;
     }
 
+    if ($userRole === 'driver') {
+        $welcome .= "\xF0\x9F\x9A\x95 *Haydovchi Panel*\n\nYangi zakazlarni kuting yoki quyida ko'ring:ð\x91\x87";
+        tg('sendMessage', [
+            'chat_id'      => $chatId,
+            'text'         => $welcome,
+            'parse_mode'   => 'Markdown',
+            'reply_markup' => roleInlineButtons('driver'),
+        ]);
+        exit;
+    }
+
     if ($userRole === 'admin') {
         $welcome .= "\xE2\x9A\x99\xEF\xB8\x8F *Admin* sifatida kirgansiz.";
         tg('sendMessage', [
@@ -932,6 +1110,25 @@ elseif ($text === '/seller') {
         'parse_mode'   => 'Markdown',
         'reply_markup' => roleInlineButtons('seller'),
     ]);
+}
+
+elseif ($text === '/driver') {
+    if (!in_array($chatId, ADMIN_IDS)) {
+        sendMsg($chatId, "❌ Faqat admin haydovchi tayinlashi mumkin.");
+        exit;
+    }
+    // /driver <user_id> formatida
+    $parts = explode(' ', $text, 2);
+    $targetId = isset($parts[1]) ? (int)trim($parts[1]) : $chatId;
+    db()->prepare("UPDATE users SET role='driver', restaurant_id=NULL WHERE id=?")->execute([$targetId]);
+    tg('sendMessage', [
+        'chat_id'    => $targetId,
+        'text'       => "🚕 *Siz haydovchi sifatida qo'shildingiz!*\n\n/start bosing va zakazlarni qabul qiling.",
+        'parse_mode' => 'Markdown',
+        'reply_markup' => roleInlineButtons('driver'),
+    ]);
+    if ($targetId !== $chatId)
+        sendMsg($chatId, "✅ #{$targetId} foydalanuvchi haydovchi qilindi.");
 }
 
 elseif ($text === '📋 Buyurtmalarim') {
