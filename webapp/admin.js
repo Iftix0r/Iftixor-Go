@@ -922,8 +922,8 @@ function renderRoles(list) {
   var el = document.getElementById('rolesList');
   if (!el) return;
   if (!list || !list.length) { el.innerHTML = emptyState('Foydalanuvchi topilmadi', iconUsers()); return; }
-  var roleLabels = { admin: '⚙️ Admin', seller: '🏪 Sotuvchi', user: '👤 User' };
-  var roleColors = { admin: 'rgba(239,68,68,.12)', seller: 'rgba(255,107,53,.12)', user: 'rgba(99,102,241,.1)' };
+  var roleLabels = { admin: '⚙️ Admin', seller: '🏪 Sotuvchi', driver: '🚕 Haydovchi', user: '👤 User' };
+  var roleColors = { admin: 'rgba(239,68,68,.12)', seller: 'rgba(255,107,53,.12)', driver: 'rgba(37,99,235,.12)', user: 'rgba(99,102,241,.1)' };
   el.innerHTML = list.map(function(u) {
     var name = ((u.first_name||'')+' '+(u.last_name||'')).trim() || 'Noma\'lum';
     var role = u.role || 'user';
