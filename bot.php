@@ -1030,7 +1030,7 @@ if (preg_match('~^/start(?:@\w+)?~i', $text) || mb_strtolower($text) === 'start'
     }
 
     if ($userRole === 'driver') {
-        $welcome .= "\xF0\x9F\x9A\x95 *Haydovchi Panel*\n\nYangi zakazlarni kuting yoki quyida ko'ring:ð\x91\x87";
+        $welcome .= "\xF0\x9F\x9A\x95 *Haydovchi Panel*\n\nYangi zakazlarni kuting yoki quyida ko'ring \xF0\x9F\x91\x87";
         tg('sendMessage', [
             'chat_id'      => $chatId,
             'text'         => $welcome,
